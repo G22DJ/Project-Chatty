@@ -37,6 +37,7 @@ export interface TranscriptionEntry {
   isThinking?: boolean;
   isStreaming?: boolean;
   sources?: GroundingSource[];
+  imageUrl?: string;
 }
 
 export interface MemoryEntry {
@@ -97,4 +98,13 @@ export interface GeneratedAsset {
   url: string;
   prompt: string;
   timestamp: Date;
+}
+
+declare global {
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
 }

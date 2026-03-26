@@ -15,6 +15,8 @@ const ScreenShareMode: React.FC<ScreenShareModeProps> = ({ isActive, stream, onF
   const [throughput, setThroughput] = useState('0.0');
   const [isReady, setIsReady] = useState(false);
 
+  const isReadyRef = useRef(false);
+
   // Keep the ref updated with the latest prop, but don't restart effects based on it
   useEffect(() => {
     onFrameRef.current = onFrame;
@@ -33,6 +35,7 @@ const ScreenShareMode: React.FC<ScreenShareModeProps> = ({ isActive, stream, onF
           const checkVideoActive = () => {
             if (video.currentTime > 0) {
                 setIsReady(true);
+                isReadyRef.current = true;
             } else {
                 requestAnimationFrame(checkVideoActive);
             }
@@ -50,7 +53,7 @@ const ScreenShareMode: React.FC<ScreenShareModeProps> = ({ isActive, stream, onF
 
     // High-performance capture loop optimized for Screen Text
     const interval = window.setInterval(() => {
-      if (videoRef.current && canvasRef.current && isReady) {
+      if (videoRef.current && canvasRef.current && isReadyRef.current) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d', { alpha: false });
@@ -74,7 +77,8 @@ const ScreenShareMode: React.FC<ScreenShareModeProps> = ({ isActive, stream, onF
           
           ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
           
-          const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+          // Higher quality for text readability
+          const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
           onFrameRef.current(base64);
         }
       }
@@ -92,8 +96,9 @@ const ScreenShareMode: React.FC<ScreenShareModeProps> = ({ isActive, stream, onF
         video.srcObject = null;
       }
       setIsReady(false);
+      isReadyRef.current = false;
     };
-  }, [isActive, stream, isReady]); // onFrame intentionally omitted
+  }, [isActive, stream]); // Removed isReady from dependencies
 
   if (!isActive) return null;
 

@@ -64,7 +64,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ onClose, onSave, currentP
     if (previewingVoice) return;
     setPreviewingVoice(vid);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: "Neural link established." }] }],
@@ -118,7 +118,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ onClose, onSave, currentP
     setIsGenerating(true);
     setStatus('Mapping genetic markers...');
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY });
       const prompt = `A highly detailed, professional ${config.vibe} of an AI assistant.
         CHARACTER: ${modality} appearance, ${config.skinTone} skin tone, ${config.hairStyle} in ${config.hairColor}, glowing ${config.eyeColor} eyes.
         WARDROBE: Wearing ${config.clothingStyle}.

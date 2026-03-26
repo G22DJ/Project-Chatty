@@ -47,16 +47,16 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({ state, analyser }) =>
       // Responsive bar counts
       const barCount = width < 200 ? 20 : width < 400 ? 40 : 60;
       const gap = width < 300 ? 2 : 4;
-      const barWidth = (width - (barCount - 1) * gap) / barCount;
+      const barWidth = Math.max(1, (width - (barCount - 1) * gap) / barCount);
 
       for (let i = 0; i < barCount; i++) {
         let barHeight = 4;
         
         if (state === AssistantState.LISTENING || state === AssistantState.SPEAKING) {
            const dataIndex = Math.floor((i / barCount) * bufferLength);
-           barHeight = (dataArray[dataIndex] / 255) * (height / 1.5) + 4;
+           barHeight = Math.max(1, (dataArray[dataIndex] / 255) * (height / 1.5) + 4);
         } else if (state === AssistantState.CONNECTING) {
-           barHeight = Math.sin(Date.now() / 200 + i * 0.5) * (height / 6) + (height / 5);
+           barHeight = Math.max(1, Math.sin(Date.now() / 200 + i * 0.5) * (height / 6) + (height / 5));
         }
 
         const x = i * (barWidth + gap);
@@ -77,7 +77,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({ state, analyser }) =>
         ctx.fillStyle = gradient;
         ctx.beginPath();
         if (ctx.roundRect) {
-            ctx.roundRect(x, y, barWidth, barHeight, barWidth / 2);
+            ctx.roundRect(x, y, barWidth, barHeight, Math.max(0, barWidth / 2));
         } else {
             ctx.rect(x, y, barWidth, barHeight);
         }
