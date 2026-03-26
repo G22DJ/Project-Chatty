@@ -1,8 +1,8 @@
 
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { GoogleGenAI, Modality, ThinkingLevel } from '@google/genai';
-import { AssistantState, DeviceType, SensorData, UserPreferences, GroundingSource, TranscriptionEntry, MemoryEntry, AvatarConfig } from './types';
+import { GoogleGenAI, Modality } from '@google/genai';
+import { AssistantState, DeviceType, SensorData, UserPreferences, GroundingSource, TranscriptionEntry, MemoryEntry } from './types';
 import * as audioUtils from './services/audioUtils';
 import VoiceVisualizer from './components/VoiceVisualizer';
 import MemoryBank from './components/MemoryBank';
@@ -13,7 +13,6 @@ import HardwareSensors from './components/HardwareSensors';
 import GroundingSources from './components/GroundingSources';
 import SettingsModal from './components/SettingsModal';
 import IntroSequence from './components/IntroSequence';
-import AvatarBuilder from './components/AvatarBuilder';
 
 const THEMES = {
   cosmic: { primary: '#3b82f6', secondary: '#8b5cf6', glow: 'rgba(59,130,246,0.5)', bg: '#02020a' },
@@ -38,7 +37,6 @@ const DEFAULT_PREFS: UserPreferences = {
   layout: 'right',
   voiceId: 'Charon',
   assistantName: 'Project Chatty',
-  assistantProfilePic: 'https://picsum.photos/seed/chatty-ai/512/512',
   customPersonality: 'You are a highly capable AI assistant.',
   modality: 'masculine',
   primaryColor: '#3b82f6',
@@ -61,54 +59,36 @@ const saveKnowledgeTool = {
   },
 };
 
-const TranscriptionBubble = React.memo(({ entry, deleteTranscription, themePrimary, assistantProfilePic }: { entry: TranscriptionEntry, deleteTranscription: (id: string) => void, themePrimary: string, assistantProfilePic?: string }) => {
+const TranscriptionBubble = React.memo(({ entry, deleteTranscription, themePrimary }: { entry: TranscriptionEntry, deleteTranscription: (id: string) => void, themePrimary: string }) => {
   return (
     <div className={`flex flex-col ${entry.sender === 'user' ? 'items-end' : 'items-start'} animate-slide-up-reveal group/item`}>
-      <div className="flex items-end gap-2 max-w-[90%] lg:max-w-[85%]">
-        {entry.sender === 'assistant' && (
-          <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full overflow-hidden border border-white/10 flex-shrink-0 mb-1">
-            {assistantProfilePic ? (
-              <img src={assistantProfilePic} className="w-full h-full object-cover" alt="AI" />
-            ) : (
-              <div className="w-full h-full bg-blue-500/10 flex items-center justify-center">
-                <i className="fas fa-user-astronaut text-white text-[8px] lg:text-[10px]"></i>
-              </div>
-            )}
-          </div>
-        )}
-        <div className={`
-          flex-1
-          px-4 py-3 lg:px-7 lg:py-5 
-          rounded-[var(--bubble-radius,var(--ui-radius))]
-          shadow-xl transition-all hover:scale-[1.01] relative
-          ${entry.sender === 'user' 
-            ? 'bg-gradient-to-br from-[var(--theme-primary)] to-indigo-600 text-white' 
-            : 'bg-white/[0.04] text-gray-200 border border-white/5 backdrop-blur-xl'
-          }
-        `}>
-          <button 
-            onClick={() => deleteTranscription(entry.id)}
-            className={`absolute ${entry.sender === 'user' ? '-left-8' : '-right-8'} top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-40 hover:!opacity-100 text-red-500 transition-all p-2 active:scale-90`}
-          >
-            <i className="fas fa-trash-alt text-xs lg:text-sm"></i>
-          </button>
-          {entry.imageUrl && (
-            <div className="mb-3 rounded-xl overflow-hidden border border-white/10 shadow-lg">
-              <img src={entry.imageUrl} className="w-full max-h-64 object-cover" alt="Uploaded" referrerPolicy="no-referrer" />
-            </div>
-          )}
-          <p className="text-sm lg:text-lg font-bold leading-relaxed whitespace-pre-wrap">{entry.text}</p>
-          {entry.sources && <GroundingSources sources={entry.sources} themePrimary={themePrimary} />}
-          <div className={`mt-2 text-[8px] opacity-40 uppercase font-black tracking-widest ${entry.sender === 'user' ? 'text-right' : 'text-left'}`}>
-            {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </div>
+      <div className={`
+        max-w-[90%] lg:max-w-[85%] 
+        px-4 py-3 lg:px-7 lg:py-5 
+        rounded-[var(--bubble-radius,var(--ui-radius))]
+        shadow-xl transition-all hover:scale-[1.01] relative
+        ${entry.sender === 'user' 
+          ? 'bg-gradient-to-br from-[var(--theme-primary)] to-indigo-600 text-white' 
+          : 'bg-white/[0.04] text-gray-200 border border-white/5 backdrop-blur-xl'
+        }
+      `}>
+        <button 
+          onClick={() => deleteTranscription(entry.id)}
+          className={`absolute ${entry.sender === 'user' ? '-left-8' : '-right-8'} top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-40 hover:!opacity-100 text-red-500 transition-all p-2 active:scale-90`}
+        >
+          <i className="fas fa-trash-alt text-xs lg:text-sm"></i>
+        </button>
+        <p className="text-sm lg:text-lg font-bold leading-relaxed whitespace-pre-wrap">{entry.text}</p>
+        {entry.sources && <GroundingSources sources={entry.sources} themePrimary={themePrimary} />}
+        <div className={`mt-2 text-[8px] opacity-40 uppercase font-black tracking-widest ${entry.sender === 'user' ? 'text-right' : 'text-left'}`}>
+          {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
     </div>
   );
 });
 
-const TranscriptionList = React.memo(({ transcriptions, deleteTranscription, themePrimary, assistantProfilePic }: { transcriptions: TranscriptionEntry[], deleteTranscription: (id: string) => void, themePrimary: string, assistantProfilePic?: string }) => {
+const TranscriptionList = React.memo(({ transcriptions, deleteTranscription, themePrimary }: { transcriptions: TranscriptionEntry[], deleteTranscription: (id: string) => void, themePrimary: string }) => {
   const grouped = useMemo<Record<string, TranscriptionEntry[]>>(() => {
     const groups: Record<string, TranscriptionEntry[]> = {};
     transcriptions.forEach(entry => {
@@ -139,7 +119,7 @@ const TranscriptionList = React.memo(({ transcriptions, deleteTranscription, the
             <div className="day-line"></div>
           </div>
           {items.map((e) => (
-            <TranscriptionBubble key={e.id} entry={e} deleteTranscription={deleteTranscription} themePrimary={themePrimary} assistantProfilePic={assistantProfilePic} />
+            <TranscriptionBubble key={e.id} entry={e} deleteTranscription={deleteTranscription} themePrimary={themePrimary} />
           ))}
         </React.Fragment>
       ))}
@@ -159,7 +139,6 @@ const App = () => {
   const [streamingAssistantText, setStreamingAssistantText] = useState('');
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isAvatarBuilderOpen, setIsAvatarBuilderOpen] = useState(false);
   const [isVisionActive, setIsVisionActive] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
@@ -168,7 +147,6 @@ const App = () => {
   const [searchEnabled, setSearchEnabled] = useState(true);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
-  const [confirmPurge, setConfirmPurge] = useState(false);
 
   const audioContextRef = useRef<{input: AudioContext, output: AudioContext} | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -177,12 +155,10 @@ const App = () => {
   const activeSourcesRef = useRef(new Set<AudioBufferSourceNode>());
   const micStreamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<any>(null);
-  const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const currentFrameRef = useRef<string | null>(null);
   const frameIntervalRef = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const saveTimeoutRef = useRef<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const themeData = useMemo(() => {
     if (prefs.theme === 'custom') {
@@ -192,9 +168,7 @@ const App = () => {
   }, [prefs.theme, prefs.primaryColor, prefs.secondaryColor]);
 
   const handleIncomingFrame = useCallback((base64: string) => {
-    if (sessionPromiseRef.current) {
-      sessionPromiseRef.current.then(s => s.sendRealtimeInput({ video: { data: base64, mimeType: 'image/jpeg' } }));
-    }
+    currentFrameRef.current = base64;
   }, []);
 
   useEffect(() => {
@@ -287,10 +261,10 @@ const App = () => {
     if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [transcriptions, streamingUserText, streamingAssistantText]);
 
-  const addTranscription = useCallback((sender: 'user' | 'assistant', text: string, sources?: GroundingSource[], imageUrl?: string) => {
-    if (!text?.trim() && !imageUrl) return;
+  const addTranscription = useCallback((sender: 'user' | 'assistant', text: string, sources?: GroundingSource[]) => {
+    if (!text?.trim()) return;
     setTranscriptions(prev => [
-      ...prev, { id: Math.random().toString(36).substr(2, 9), sender, text, timestamp: new Date(), sources, imageUrl }
+      ...prev, { id: Math.random().toString(36).substr(2, 9), sender, text, timestamp: new Date(), sources }
     ]);
   }, []);
 
@@ -298,9 +272,8 @@ const App = () => {
     setTranscriptions(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const stopSession = useCallback((keepScreen = false) => {
+  const stopSession = useCallback(() => {
     if (sessionRef.current) { try { sessionRef.current.close?.(); } catch(e){} sessionRef.current = null; }
-    sessionPromiseRef.current = null;
     if (micStreamRef.current) { micStreamRef.current.getTracks().forEach(t => t.stop()); micStreamRef.current = null; }
     if (scriptProcessorRef.current) { scriptProcessorRef.current.disconnect(); scriptProcessorRef.current = null; }
     if (audioContextRef.current) {
@@ -308,25 +281,22 @@ const App = () => {
         audioContextRef.current.output.close().catch(() => {});
         audioContextRef.current = null;
     }
-    if (screenStream && !keepScreen) { screenStream.getTracks().forEach(t => t.stop()); setScreenStream(null); }
+    if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); setScreenStream(null); }
     if (frameIntervalRef.current) { window.clearInterval(frameIntervalRef.current); frameIntervalRef.current = null; }
     activeSourcesRef.current.forEach(s => { try { s.stop(); } catch (e) {} });
     activeSourcesRef.current.clear();
     nextStartTimeRef.current = 0;
     setState(AssistantState.IDLE);
-    if (!keepScreen) setIsVisionActive(false);
-    if (!keepScreen) setIsScreenSharing(false);
+    setIsVisionActive(false);
+    setIsScreenSharing(false);
     setStreamingUserText('');
     setStreamingAssistantText('');
   }, [screenStream]);
 
   const startSession = async (initialText?: string) => {
     try {
-      if (window.aistudio && !(await window.aistudio.hasSelectedApiKey())) {
-        await window.aistudio.openSelectKey();
-      }
       setState(AssistantState.CONNECTING);
-      const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+      const apiKey = process.env.API_KEY;
       if (!apiKey) throw new Error("API Authentication failure.");
       const ai = new GoogleGenAI({ apiKey });
       audioContextRef.current = {
@@ -359,7 +329,7 @@ const App = () => {
           toolConfig: sensorData.location ? { retrievalConfig: { latLng: { latitude: sensorData.location.lat, longitude: sensorData.location.lng } } } : undefined,
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: prefs.voiceId } } },
           systemInstruction: `Identity: ${prefs.assistantName}. Persona: ${personalityPrompt}. ${memoryPrompt}. ${visionContext} VISUAL_MODE: ACTIVE. HEARING_MODE: ACTIVE. Respond naturally.`,
-          inputAudioTranscription: {}, outputAudioTranscription: {}
+          inputAudioTranscription: {}, outputAudioTranscription: {}, thinkingConfig: { thinkingBudget: 24576 }
         } as any,
         callbacks: {
           onopen: () => {
@@ -369,10 +339,17 @@ const App = () => {
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               const pcmBlob = audioUtils.createPcmBlob(inputData, inputCtx.sampleRate);
-              sessionPromise.then(s => s.sendRealtimeInput({ audio: pcmBlob }));
+              sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
             };
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputCtx.destination);
+            frameIntervalRef.current = window.setInterval(() => {
+              if (currentFrameRef.current) {
+                const frameData = currentFrameRef.current;
+                currentFrameRef.current = null;
+                sessionPromise.then(s => s.sendRealtimeInput({ media: { data: frameData, mimeType: 'image/jpeg' } }));
+              }
+            }, 500); 
             const initialMsg = initialText || prefs.greeting;
             sessionPromise.then(s => s.sendRealtimeInput({ text: initialMsg }));
             if (initialText) addTranscription('user', initialText);
@@ -429,7 +406,6 @@ const App = () => {
           onclose: () => stopSession()
         }
       });
-      sessionPromiseRef.current = sessionPromise;
       sessionRef.current = await sessionPromise;
     } catch (err: any) { 
       if (err?.message?.includes("Requested entity was not found") && window.aistudio) await window.aistudio.openSelectKey();
@@ -447,53 +423,15 @@ const App = () => {
     else if (sessionRef.current) { sessionRef.current.sendRealtimeInput({ text }); addTranscription('user', text); }
   }, [inputText, state, addTranscription]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorToast("Neural uplink rejected: Image exceeds 5MB limit.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      const base64Data = base64.split(',')[1];
-      
-      if (state === AssistantState.IDLE) {
-        await startSession("Analyze this visual data.");
-        setTimeout(() => {
-          if (sessionRef.current) {
-            sessionRef.current.sendRealtimeInput({ video: { data: base64Data, mimeType: file.type } });
-            addTranscription('user', "Visual Data Uplinked", undefined, base64);
-          }
-        }, 1500);
-      } else if (sessionRef.current) {
-        sessionRef.current.sendRealtimeInput({ video: { data: base64Data, mimeType: file.type } });
-        addTranscription('user', "Visual Data Uplinked", undefined, base64);
-      }
-    };
-    reader.readAsDataURL(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   const handleToggleVision = async () => {
-    if (isVisionActive && !isScreenSharing) setIsVisionActive(false);
+    if (isVisionActive) setIsVisionActive(false);
     else {
       try {
         await navigator.mediaDevices.getUserMedia({ video: true });
         setIsScreenSharing(false);
         setIsVisionActive(true);
         if (state === AssistantState.IDLE) startSession();
-        else { stopSession(false); setTimeout(async () => { 
-          try {
-            setIsVisionActive(true); 
-            await startSession(); 
-          } catch (e) {
-            setErrorToast("Failed to restart session with vision.");
-          }
-        }, 600); }
+        else { stopSession(); setTimeout(() => { setIsVisionActive(true); startSession(); }, 600); }
       } catch (err) { setErrorToast("Optic hardware link failed."); }
     }
   };
@@ -509,15 +447,7 @@ const App = () => {
         setIsVisionActive(false);
         setIsScreenSharing(true);
         if (state === AssistantState.IDLE) startSession();
-        else { stopSession(true); setTimeout(async () => { 
-          try {
-            setScreenStream(stream); 
-            setIsScreenSharing(true); 
-            await startSession(); 
-          } catch (e) {
-            setErrorToast("Failed to restart session with screen share.");
-          }
-        }, 600); }
+        else { stopSession(); setTimeout(() => { setScreenStream(stream); setIsScreenSharing(true); startSession(); }, 600); }
         stream.getVideoTracks()[0].onended = () => { setIsScreenSharing(false); setScreenStream(null); };
       } catch (err) { setErrorToast("Uplink negotiation aborted."); }
     }
@@ -527,23 +457,11 @@ const App = () => {
     setUser({ username, preferences });
   };
 
-  const handleSaveAvatar = (picUrl: string, config: AvatarConfig, instruction: string, voiceId: string, modality: 'masculine' | 'feminine') => {
-    setPrefs(p => ({
-      ...p,
-      assistantProfilePic: picUrl,
-      avatarConfig: config,
-      customPersonality: instruction,
-      voiceId,
-      modality
-    }));
-    setIsAvatarBuilderOpen(false);
-  };
-
   const handlePreviewVoice = async (voiceId: string) => {
     if (previewingVoiceId) return;
     setPreviewingVoiceId(voiceId);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: `Link established.` }] }],
@@ -605,24 +523,13 @@ const App = () => {
           )}
           <div className="flex-1 flex flex-col glass rounded-[var(--ui-radius)] overflow-hidden relative shadow-2xl min-h-0">
             <div className={`flex-1 p-4 lg:p-8 space-y-4 lg:space-y-8 overflow-y-auto scrollbar-thin transcription-list`} ref={scrollRef}>
-              <TranscriptionList transcriptions={transcriptions} deleteTranscription={deleteTranscription} themePrimary={themeData.primary} assistantProfilePic={prefs.assistantProfilePic} />
+              <TranscriptionList transcriptions={transcriptions} deleteTranscription={deleteTranscription} themePrimary={themeData.primary} />
               {(streamingAssistantText || streamingUserText || state === AssistantState.THINKING) && (
                 <div className="items-start flex flex-col animate-pop">
-                  <div className="flex items-end gap-2 max-w-[85%]">
-                    <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full overflow-hidden border border-white/10 flex-shrink-0 mb-1">
-                      {prefs.assistantProfilePic ? (
-                        <img src={prefs.assistantProfilePic} className="w-full h-full object-cover" alt="AI" />
-                      ) : (
-                        <div className="w-full h-full bg-blue-500/10 flex items-center justify-center">
-                          <i className="fas fa-user-astronaut text-white text-[8px] lg:text-[10px]"></i>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 px-5 py-3 rounded-[var(--bubble-radius)] bg-white/[0.03] text-white/60 border border-white/5">
-                      {streamingUserText && <p className="text-[10px] text-blue-400 font-black uppercase mb-1 opacity-50">Transcribing User...</p>}
-                      {streamingUserText && <p className="mb-3 text-sm italic">"{streamingUserText}"</p>}
-                      {streamingAssistantText ? <p className="font-mono text-xs lg:text-sm leading-relaxed">{streamingAssistantText}</p> : <div className="typing-indicator"><span></span><span></span><span></span></div>}
-                    </div>
+                  <div className="max-w-[85%] px-5 py-3 rounded-[var(--bubble-radius)] bg-white/[0.03] text-white/60 border border-white/5">
+                    {streamingUserText && <p className="text-[10px] text-blue-400 font-black uppercase mb-1 opacity-50">Transcribing User...</p>}
+                    {streamingUserText && <p className="mb-3 text-sm italic">"{streamingUserText}"</p>}
+                    {streamingAssistantText ? <p className="font-mono text-xs lg:text-sm leading-relaxed">{streamingAssistantText}</p> : <div className="typing-indicator"><span></span><span></span><span></span></div>}
                   </div>
                 </div>
               )}
@@ -633,10 +540,6 @@ const App = () => {
                   <div className="flex gap-2">
                     <button onClick={handleToggleVision} className={`w-10 h-10 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isVisionActive ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Optic Link"><i className="fas fa-camera text-sm lg:text-lg"></i></button>
                     <button onClick={handleToggleScreenShare} className={`w-10 h-10 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isScreenSharing ? 'bg-cyan-500 text-white animate-pulse shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Screen Uplink"><i className="fas fa-desktop text-sm lg:text-lg"></i></button>
-                    <button onClick={() => fileInputRef.current?.click()} className="w-10 h-10 lg:w-14 lg:h-14 rounded-xl bg-white/5 text-gray-400 hover:text-white flex items-center justify-center transition-all active:scale-90" title="Upload Image">
-                      <i className="fas fa-image text-sm lg:text-lg"></i>
-                    </button>
-                    <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
                   </div>
                   <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendText()} placeholder="Directive..." className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 lg:px-6 py-3 lg:py-5 text-sm lg:text-lg focus:outline-none focus:border-blue-500/50 text-white font-bold" />
                   <button onClick={inputText.trim() ? handleSendText : (state === AssistantState.IDLE ? () => startSession() : stopSession)} className={`flex-1 md:flex-none md:w-48 lg:w-64 h-14 lg:h-20 rounded-[var(--ui-radius)] flex items-center justify-center transition-all gap-2 lg:gap-4 neo-button shadow-2xl ${state === AssistantState.IDLE ? 'bg-white text-black' : 'bg-red-600 text-white animate-pulse'}`}>
@@ -649,38 +552,12 @@ const App = () => {
         </div>
         {isMemoryOpen && (
           <div className="w-full md:w-[380px] lg:w-[420px] h-full flex-shrink-0 animate-slide-in-right-bounce z-[60]">
-            <MemoryBank memories={memories} onRemove={(id) => setMemories(p => p.filter(m => m.id !== id))} onAdd={(fact) => setMemories(p => [...p, { id: Math.random().toString(36).substr(2, 9), fact, timestamp: new Date() }])} onPurge={() => setConfirmPurge(true)} assistantName={prefs.assistantName} />
+            <MemoryBank memories={memories} onRemove={(id) => setMemories(p => p.filter(m => m.id !== id))} onAdd={(fact) => setMemories(p => [...p, { id: Math.random().toString(36).substr(2, 9), fact, timestamp: new Date() }])} onPurge={() => { if(window.confirm("Purge memory?")) setMemories([]); }} assistantName={prefs.assistantName} />
           </div>
         )}
       </main>
 
-      {confirmPurge && (
-        <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
-          <div className="max-w-md w-full glass p-8 rounded-[2rem] border border-white/10 text-center space-y-6">
-            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto text-red-500 text-2xl">
-              <i className="fas fa-exclamation-triangle"></i>
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-black uppercase tracking-widest text-white">Purge Core Memory?</h3>
-              <p className="text-xs text-gray-500 leading-relaxed">This will permanently erase all stored facts and preferences from the neural matrix. This action cannot be undone.</p>
-            </div>
-            <div className="flex gap-4">
-              <button onClick={() => setConfirmPurge(false)} className="flex-1 py-4 rounded-xl bg-white/5 text-gray-400 font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">Abort</button>
-              <button onClick={() => { setMemories([]); setConfirmPurge(false); }} className="flex-1 py-4 rounded-xl bg-red-600 text-white font-black uppercase tracking-widest text-[10px] hover:bg-red-500 transition-all shadow-lg shadow-red-600/20">Purge</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} prefs={prefs} setPrefs={setPrefs} voices={dynamicVoices} personalities={PERSONALITIES} isTV={false} isWearable={false} onPreviewVoice={handlePreviewVoice} previewingVoiceId={previewingVoiceId} onOpenAvatarBuilder={() => { setIsSettingsOpen(false); setIsAvatarBuilderOpen(true); }} />
-
-      {isAvatarBuilderOpen && (
-        <AvatarBuilder 
-          onClose={() => setIsAvatarBuilderOpen(false)} 
-          onSave={handleSaveAvatar} 
-          currentPrefs={prefs} 
-        />
-      )}
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} prefs={prefs} setPrefs={setPrefs} voices={dynamicVoices} personalities={PERSONALITIES} isTV={false} isWearable={false} onPreviewVoice={handlePreviewVoice} previewingVoiceId={previewingVoiceId} />
 
       {errorToast && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-red-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl animate-shake z-[200]">

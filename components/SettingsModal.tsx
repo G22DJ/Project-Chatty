@@ -14,11 +14,10 @@ interface SettingsModalProps {
   isWearable: boolean;
   onPreviewVoice?: (voiceId: string) => void;
   previewingVoiceId?: string | null;
-  onOpenAvatarBuilder: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen, onClose, prefs, setPrefs, voices, personalities, isTV, isWearable, onPreviewVoice, previewingVoiceId, onOpenAvatarBuilder,
+  isOpen, onClose, prefs, setPrefs, voices, personalities, isTV, isWearable, onPreviewVoice, previewingVoiceId,
 }) => {
   const [activeTab, setActiveTab] = useState<'IDENTITY' | 'VISUALS' | 'AUDIO' | 'SYSTEM'>('IDENTITY');
   if (!isOpen) return null;
@@ -53,58 +52,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <input type="text" value={prefs.assistantName} onChange={(e) => setPrefs(p => ({ ...p, assistantName: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 font-black text-xl focus:border-[var(--theme-primary)] outline-none" />
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Neural Identity Link (Avatar)</label>
-                  <div className="flex flex-col gap-4">
-                    <div className="flex gap-4">
-                      <div className="w-16 h-16 rounded-2xl overflow-hidden border border-white/10 flex-shrink-0 bg-white/5">
-                        {prefs.assistantProfilePic ? (
-                          <img src={prefs.assistantProfilePic} className="w-full h-full object-cover" alt="Avatar" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-700">
-                            <i className="fas fa-user-astronaut"></i>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 grid grid-cols-2 gap-2">
-                        <button 
-                          onClick={onOpenAvatarBuilder}
-                          className="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] transition-all flex items-center justify-center gap-2"
-                        >
-                          <i className="fas fa-sparkles"></i>
-                          Neural Studio
-                        </button>
-                        <button 
-                          onClick={() => document.getElementById('profile-upload')?.click()}
-                          className="bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-black uppercase tracking-widest text-[9px] transition-all flex items-center justify-center gap-2"
-                        >
-                          <i className="fas fa-upload"></i>
-                          Upload Local
-                        </button>
-                        <input 
-                          type="file" 
-                          id="profile-upload" 
-                          className="hidden" 
-                          accept="image/*" 
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (ev) => {
-                                setPrefs(p => ({ ...p, assistantProfilePic: ev.target?.result as string }));
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Assistant Profile (URL)</label>
+                  <input type="text" value={prefs.assistantProfilePic || ''} onChange={(e) => setPrefs(p => ({ ...p, assistantProfilePic: e.target.value }))} placeholder="https://..." className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 font-bold text-sm focus:border-[var(--theme-primary)] outline-none" />
                 </div>
-              </div>
-
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Profile URL (Manual Override)</label>
-                <input type="text" value={prefs.assistantProfilePic || ''} onChange={(e) => setPrefs(p => ({ ...p, assistantProfilePic: e.target.value }))} placeholder="https://..." className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 font-bold text-sm focus:border-[var(--theme-primary)] outline-none" />
               </div>
               
               <div className="space-y-4">
@@ -214,28 +164,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                <div className="space-y-4">
                   <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Direct Personality Matrix</label>
                   <textarea value={prefs.customPersonality} onChange={(e) => setPrefs(p => ({ ...p, customPersonality: e.target.value }))} placeholder="Provide specific behavior instructions..." className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 text-xs font-mono text-gray-400 focus:border-[var(--theme-primary)] outline-none resize-none" />
-               </div>
-
-               <div className="pt-10 border-t border-white/5 space-y-6">
-                  <div className="flex items-center justify-between">
-                     <div className="space-y-1">
-                       <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Neural Key Management</h4>
-                       <p className="text-[8px] text-gray-500 uppercase tracking-widest">Manage your Gemini API authentication</p>
-                     </div>
-                     <button 
-                       onClick={async () => { if (window.aistudio) await window.aistudio.openSelectKey(); }}
-                       className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-white transition-all"
-                     >
-                       Update API Key
-                     </button>
-                  </div>
-                  <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex items-center gap-4">
-                     <i className="fas fa-info-circle text-amber-500"></i>
-                     <p className="text-[9px] text-amber-500/80 font-bold uppercase leading-relaxed">
-                       Using advanced preview models requires a paid Gemini API key. 
-                       <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline ml-2 hover:text-amber-400">View Billing Documentation</a>
-                     </p>
-                  </div>
                </div>
             </div>
           )}
