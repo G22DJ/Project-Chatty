@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { GoogleGenAI, Modality } from '@google/genai';
+import { GoogleGenAI, Modality, ThinkingLevel } from '@google/genai';
 import { AssistantState, DeviceType, SensorData, UserPreferences, GroundingSource, TranscriptionEntry, MemoryEntry, AvatarConfig } from './types';
 import * as audioUtils from './services/audioUtils';
 import VoiceVisualizer from './components/VoiceVisualizer';
@@ -168,6 +168,7 @@ const App = () => {
   const [searchEnabled, setSearchEnabled] = useState(true);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
+  const [confirmPurge, setConfirmPurge] = useState(false);
 
   const audioContextRef = useRef<{input: AudioContext, output: AudioContext} | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -351,7 +352,7 @@ const App = () => {
           toolConfig: sensorData.location ? { retrievalConfig: { latLng: { latitude: sensorData.location.lat, longitude: sensorData.location.lng } } } : undefined,
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: prefs.voiceId } } },
           systemInstruction: `Identity: ${prefs.assistantName}. Persona: ${personalityPrompt}. ${memoryPrompt}. ${visionContext} VISUAL_MODE: ACTIVE. HEARING_MODE: ACTIVE. Respond naturally.`,
-          inputAudioTranscription: {}, outputAudioTranscription: {}, thinkingConfig: { thinkingBudget: 24576 }
+          inputAudioTranscription: {}, outputAudioTranscription: {}
         } as any,
         callbacks: {
           onopen: () => {
@@ -361,7 +362,7 @@ const App = () => {
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               const pcmBlob = audioUtils.createPcmBlob(inputData, inputCtx.sampleRate);
-              sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
+              sessionPromise.then(s => s.sendRealtimeInput({ audio: pcmBlob }));
             };
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputCtx.destination);
@@ -369,7 +370,7 @@ const App = () => {
               if (currentFrameRef.current) {
                 const frameData = currentFrameRef.current;
                 currentFrameRef.current = null;
-                sessionPromise.then(s => s.sendRealtimeInput({ media: { data: frameData, mimeType: 'image/jpeg' } }));
+                sessionPromise.then(s => s.sendRealtimeInput({ video: { data: frameData, mimeType: 'image/jpeg' } }));
               }
             }, 500); 
             const initialMsg = initialText || prefs.greeting;
@@ -632,10 +633,28 @@ const App = () => {
         </div>
         {isMemoryOpen && (
           <div className="w-full md:w-[380px] lg:w-[420px] h-full flex-shrink-0 animate-slide-in-right-bounce z-[60]">
-            <MemoryBank memories={memories} onRemove={(id) => setMemories(p => p.filter(m => m.id !== id))} onAdd={(fact) => setMemories(p => [...p, { id: Math.random().toString(36).substr(2, 9), fact, timestamp: new Date() }])} onPurge={() => { if(window.confirm("Purge memory?")) setMemories([]); }} assistantName={prefs.assistantName} />
+            <MemoryBank memories={memories} onRemove={(id) => setMemories(p => p.filter(m => m.id !== id))} onAdd={(fact) => setMemories(p => [...p, { id: Math.random().toString(36).substr(2, 9), fact, timestamp: new Date() }])} onPurge={() => setConfirmPurge(true)} assistantName={prefs.assistantName} />
           </div>
         )}
       </main>
+
+      {confirmPurge && (
+        <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
+          <div className="max-w-md w-full glass p-8 rounded-[2rem] border border-white/10 text-center space-y-6">
+            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto text-red-500 text-2xl">
+              <i className="fas fa-exclamation-triangle"></i>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black uppercase tracking-widest text-white">Purge Core Memory?</h3>
+              <p className="text-xs text-gray-500 leading-relaxed">This will permanently erase all stored facts and preferences from the neural matrix. This action cannot be undone.</p>
+            </div>
+            <div className="flex gap-4">
+              <button onClick={() => setConfirmPurge(false)} className="flex-1 py-4 rounded-xl bg-white/5 text-gray-400 font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">Abort</button>
+              <button onClick={() => { setMemories([]); setConfirmPurge(false); }} className="flex-1 py-4 rounded-xl bg-red-600 text-white font-black uppercase tracking-widest text-[10px] hover:bg-red-500 transition-all shadow-lg shadow-red-600/20">Purge</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} prefs={prefs} setPrefs={setPrefs} voices={dynamicVoices} personalities={PERSONALITIES} isTV={false} isWearable={false} onPreviewVoice={handlePreviewVoice} previewingVoiceId={previewingVoiceId} onOpenAvatarBuilder={() => { setIsSettingsOpen(false); setIsAvatarBuilderOpen(true); }} />
 

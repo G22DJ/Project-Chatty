@@ -12,6 +12,7 @@ const LoginPage = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [identities, setIdentities] = useState([]);
+  const [identityToTerminate, setIdentityToTerminate] = useState(null);
 
   const getStoredUsers = () => {
     try {
@@ -52,31 +53,36 @@ const LoginPage = ({ onLogin }) => {
 
   const handleDeleteIdentity = (e, nameToDelete) => {
     e.stopPropagation(); // Prevent card selection
-    if (window.confirm(`TERMINATE IDENTITY: ${nameToDelete}?\n\nThis will permanently purge all encrypted logs, memories, and access credentials. This action is irreversible.`)) {
-      // 1. Remove from credentials
-      const users = getStoredUsers();
-      delete users[nameToDelete];
-      localStorage.setItem('nova_credentials', JSON.stringify(users));
+    setIdentityToTerminate(nameToDelete);
+  };
 
-      // 2. Remove from identities list
-      const updatedIdentities = identities.filter(id => id !== nameToDelete);
-      localStorage.setItem('nova_identities', JSON.stringify(updatedIdentities));
-      setIdentities(updatedIdentities);
+  const confirmDeleteIdentity = () => {
+    const nameToDelete = identityToTerminate;
+    // 1. Remove from credentials
+    const users = getStoredUsers();
+    delete users[nameToDelete];
+    localStorage.setItem('nova_credentials', JSON.stringify(users));
 
-      // 3. Purge data buckets
-      localStorage.removeItem(`nova_${nameToDelete}_prefs`);
-      localStorage.removeItem(`nova_${nameToDelete}_memories`);
-      localStorage.removeItem(`nova_${nameToDelete}_logs`);
+    // 2. Remove from identities list
+    const updatedIdentities = identities.filter(id => id !== nameToDelete);
+    localStorage.setItem('nova_identities', JSON.stringify(updatedIdentities));
+    setIdentities(updatedIdentities);
 
-      // 4. Handle persistence
-      if (localStorage.getItem('nova_persistent_user') === nameToDelete) {
-        localStorage.removeItem('nova_persistent_user');
-      }
+    // 3. Purge data buckets
+    localStorage.removeItem(`nova_${nameToDelete}_prefs`);
+    localStorage.removeItem(`nova_${nameToDelete}_memories`);
+    localStorage.removeItem(`nova_${nameToDelete}_logs`);
 
-      // If no identities left, go to sign up
-      if (updatedIdentities.length === 0) {
-        setMode('SIGN_UP');
-      }
+    // 4. Handle persistence
+    if (localStorage.getItem('nova_persistent_user') === nameToDelete) {
+      localStorage.removeItem('nova_persistent_user');
+    }
+
+    setIdentityToTerminate(null);
+
+    // If no identities left, go to sign up
+    if (updatedIdentities.length === 0) {
+      setMode('SIGN_UP');
     }
   };
 
@@ -352,6 +358,25 @@ const LoginPage = ({ onLogin }) => {
           </div>
         )}
       </div>
+
+      {identityToTerminate && (
+        <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in">
+          <div className="max-w-md w-full glass p-10 rounded-[3rem] border border-red-500/20 text-center space-y-8 shadow-[0_0_50px_rgba(239,68,68,0.1)]">
+            <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mx-auto text-red-500 text-3xl animate-pulse">
+              <i className="fas fa-skull-crossbones"></i>
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-2xl font-black uppercase tracking-widest text-white">Terminate Identity?</h3>
+              <p className="text-[10px] text-red-400 font-black uppercase tracking-[0.2em]">{identityToTerminate}</p>
+              <p className="text-xs text-gray-500 leading-relaxed">This will permanently purge all encrypted logs, memories, and access credentials. This action is irreversible.</p>
+            </div>
+            <div className="flex gap-4">
+              <button onClick={() => setIdentityToTerminate(null)} className="flex-1 py-5 rounded-2xl bg-white/5 text-gray-400 font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">Abort</button>
+              <button onClick={confirmDeleteIdentity} className="flex-1 py-5 rounded-2xl bg-red-600 text-white font-black uppercase tracking-widest text-[10px] hover:bg-red-500 transition-all shadow-lg shadow-red-600/20">Terminate</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
