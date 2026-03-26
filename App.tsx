@@ -88,9 +88,9 @@ const TranscriptionBubble = React.memo(({ entry, deleteTranscription, themePrima
         `}>
           <button 
             onClick={() => deleteTranscription(entry.id)}
-            className={`absolute ${entry.sender === 'user' ? '-left-8' : '-right-8'} top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-40 hover:!opacity-100 text-red-500 transition-all p-2 active:scale-90`}
+            className={`absolute ${entry.sender === 'user' ? '-left-6 md:-left-8' : '-right-6 md:-right-8'} top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-40 hover:!opacity-100 text-red-500 transition-all p-2 active:scale-90 z-10`}
           >
-            <i className="fas fa-trash-alt text-xs lg:text-sm"></i>
+            <i className="fas fa-trash-alt text-[10px] md:text-sm"></i>
           </button>
           {entry.imageUrl && (
             <div className="mb-3 rounded-xl overflow-hidden border border-white/10 shadow-lg">
@@ -595,8 +595,8 @@ const App = () => {
         </div>
       </header>
 
-      <main className={`flex-1 flex p-[var(--ui-gap)] gap-[var(--ui-gap)] overflow-hidden`}>
-        <div className="flex-1 flex flex-col gap-[var(--ui-gap)] min-h-0">
+      <main className={`flex-1 flex flex-col md:flex-row p-[var(--ui-gap)] gap-[var(--ui-gap)] overflow-hidden relative`}>
+        <div className="flex-1 flex flex-col gap-[var(--ui-gap)] min-h-0 w-full">
           {(isVisionActive || isScreenSharing) && (
             <div className="h-48 md:h-72 lg:h-[400px] w-full animate-pop flex-shrink-0 relative group">
               {isVisionActive && <ObservationMode isActive={isVisionActive} onFrame={handleIncomingFrame} />}
@@ -629,27 +629,29 @@ const App = () => {
             </div>
             <div className="p-4 lg:p-8 border-t border-white/5 bg-black/50 backdrop-blur-2xl flex flex-col gap-3 lg:gap-6">
               <VoiceVisualizer state={state} analyser={analyserRef.current || undefined} />
-              <div className="flex gap-3 items-center">
-                  <div className="flex gap-2">
-                    <button onClick={handleToggleVision} className={`w-10 h-10 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isVisionActive ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Optic Link"><i className="fas fa-camera text-sm lg:text-lg"></i></button>
-                    <button onClick={handleToggleScreenShare} className={`w-10 h-10 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isScreenSharing ? 'bg-cyan-500 text-white animate-pulse shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Screen Uplink"><i className="fas fa-desktop text-sm lg:text-lg"></i></button>
-                    <button onClick={() => fileInputRef.current?.click()} className="w-10 h-10 lg:w-14 lg:h-14 rounded-xl bg-white/5 text-gray-400 hover:text-white flex items-center justify-center transition-all active:scale-90" title="Upload Image">
+              <div className="flex flex-wrap md:flex-nowrap gap-3 items-center">
+                  <div className="flex gap-2 w-full md:w-auto justify-center md:justify-start">
+                    <button onClick={handleToggleVision} className={`w-12 h-12 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isVisionActive ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Optic Link"><i className="fas fa-camera text-sm lg:text-lg"></i></button>
+                    <button onClick={handleToggleScreenShare} className={`w-12 h-12 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isScreenSharing ? 'bg-cyan-500 text-white animate-pulse shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Screen Uplink"><i className="fas fa-desktop text-sm lg:text-lg"></i></button>
+                    <button onClick={() => fileInputRef.current?.click()} className="w-12 h-12 lg:w-14 lg:h-14 rounded-xl bg-white/5 text-gray-400 hover:text-white flex items-center justify-center transition-all active:scale-90" title="Upload Image">
                       <i className="fas fa-image text-sm lg:text-lg"></i>
                     </button>
                     <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
                   </div>
-                  <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendText()} placeholder="Directive..." className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 lg:px-6 py-3 lg:py-5 text-sm lg:text-lg focus:outline-none focus:border-blue-500/50 text-white font-bold" />
-                  <button onClick={inputText.trim() ? handleSendText : (state === AssistantState.IDLE ? () => startSession() : stopSession)} className={`flex-1 md:flex-none md:w-48 lg:w-64 h-14 lg:h-20 rounded-[var(--ui-radius)] flex items-center justify-center transition-all gap-2 lg:gap-4 neo-button shadow-2xl ${state === AssistantState.IDLE ? 'bg-white text-black' : 'bg-red-600 text-white animate-pulse'}`}>
-                    <i className={`fas ${inputText.trim() ? 'fa-paper-plane' : (state === AssistantState.IDLE ? 'fa-bolt' : 'fa-square')} text-sm lg:text-lg`}></i>
-                    <span className="font-black uppercase tracking-widest text-[8px] lg:text-[11px]">{inputText.trim() ? 'SEND' : (state === AssistantState.IDLE ? 'IGNITE' : 'HALT')}</span>
-                  </button>
+                  <div className="flex-1 flex gap-2 w-full">
+                    <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendText()} placeholder="Directive..." className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 lg:px-6 py-3 lg:py-5 text-sm lg:text-lg focus:outline-none focus:border-blue-500/50 text-white font-bold min-w-0" />
+                    <button onClick={inputText.trim() ? handleSendText : (state === AssistantState.IDLE ? () => startSession() : stopSession)} className={`flex-shrink-0 w-14 h-14 md:w-48 lg:w-64 md:h-20 rounded-[var(--ui-radius)] flex items-center justify-center transition-all gap-2 lg:gap-4 neo-button shadow-2xl ${state === AssistantState.IDLE ? 'bg-white text-black' : 'bg-red-600 text-white animate-pulse'}`}>
+                      <i className={`fas ${inputText.trim() ? 'fa-paper-plane' : (state === AssistantState.IDLE ? 'fa-bolt' : 'fa-square')} text-sm lg:text-lg`}></i>
+                      <span className="hidden md:inline font-black uppercase tracking-widest text-[8px] lg:text-[11px]">{inputText.trim() ? 'SEND' : (state === AssistantState.IDLE ? 'IGNITE' : 'HALT')}</span>
+                    </button>
+                  </div>
               </div>
             </div>
           </div>
         </div>
         {isMemoryOpen && (
-          <div className="w-full md:w-[380px] lg:w-[420px] h-full flex-shrink-0 animate-slide-in-right-bounce z-[60]">
-            <MemoryBank memories={memories} onRemove={(id) => setMemories(p => p.filter(m => m.id !== id))} onAdd={(fact) => setMemories(p => [...p, { id: Math.random().toString(36).substr(2, 9), fact, timestamp: new Date() }])} onPurge={() => setConfirmPurge(true)} assistantName={prefs.assistantName} />
+          <div className="absolute inset-y-0 right-0 w-full md:relative md:w-[380px] lg:w-[420px] h-full flex-shrink-0 animate-slide-in-right-bounce z-[60] p-[var(--ui-gap)] md:p-0 bg-black/40 backdrop-blur-xl md:bg-transparent md:backdrop-blur-none">
+            <MemoryBank memories={memories} onRemove={(id) => setMemories(p => p.filter(m => m.id !== id))} onAdd={(fact) => setMemories(p => [...p, { id: Math.random().toString(36).substr(2, 9), fact, timestamp: new Date() }])} onPurge={() => setConfirmPurge(true)} assistantName={prefs.assistantName} onClose={() => setIsMemoryOpen(false)} />
           </div>
         )}
       </main>

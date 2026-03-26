@@ -165,23 +165,23 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ onClose, onSave, currentP
 
   return (
     <div className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-4 lg:p-10 animate-fade-in font-sans">
-      <div className="w-full max-w-6xl h-[90vh] glass rounded-[4rem] border border-white/10 flex overflow-hidden shadow-2xl relative">
+      <div className="w-full max-w-6xl h-[95vh] md:h-[90vh] glass rounded-[2rem] md:rounded-[4rem] border border-white/10 flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
         
         {/* CAS Sidebar */}
-        <div className="w-24 lg:w-32 bg-black/40 border-r border-white/5 flex flex-col items-center py-10 gap-6 flex-shrink-0">
+        <div className="w-full md:w-24 lg:w-32 bg-black/40 border-b md:border-b-0 md:border-r border-white/5 flex flex-row md:flex-col items-center justify-center md:justify-start py-4 md:py-10 gap-4 md:gap-6 flex-shrink-0 overflow-x-auto no-scrollbar">
           {CATEGORIES.map(cat => (
             <button 
               key={cat.id}
               onClick={() => setActiveTab(cat.id)}
-              className={`w-14 h-14 lg:w-16 lg:h-16 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all group ${activeTab === cat.id ? 'bg-white text-black scale-110 shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+              className={`w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-xl md:rounded-2xl flex flex-col items-center justify-center gap-1 transition-all group flex-shrink-0 ${activeTab === cat.id ? 'bg-white text-black scale-110 shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
             >
-              <i className={`fas ${cat.icon} text-lg lg:text-xl`}></i>
-              <span className="text-[7px] font-black uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">{cat.label}</span>
+              <i className={`fas ${cat.icon} text-base md:text-lg lg:text-xl`}></i>
+              <span className="text-[6px] md:text-[7px] font-black uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">{cat.label}</span>
             </button>
           ))}
-          <div className="mt-auto flex flex-col items-center gap-4">
-             <button onClick={randomize} className="w-12 h-12 rounded-full bg-white/5 text-blue-400 hover:bg-white/10 transition-all" title="Randomize Attributes"><i className="fas fa-dice"></i></button>
-             <button onClick={onClose} className="text-gray-600 hover:text-red-500 transition-colors p-4"><i className="fas fa-times text-xl"></i></button>
+          <div className="md:mt-auto flex flex-row md:flex-col items-center gap-4 px-4 md:px-0">
+             <button onClick={randomize} className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/5 text-blue-400 hover:bg-white/10 transition-all" title="Randomize Attributes"><i className="fas fa-dice"></i></button>
+             <button onClick={onClose} className="text-gray-600 hover:text-red-500 transition-colors p-2 md:p-4"><i className="fas fa-times text-lg md:text-xl"></i></button>
           </div>
         </div>
 
@@ -326,11 +326,11 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ onClose, onSave, currentP
               )}
             </div>
 
-            <div className="pt-10 flex gap-4">
+            <div className="pt-6 md:pt-10 flex flex-col sm:flex-row gap-4">
                <button 
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className={`flex-1 h-20 rounded-3xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-4 transition-all ${isGenerating ? 'bg-white/5 text-gray-600 cursor-wait' : 'bg-white text-black hover:scale-[1.02] active:scale-95 shadow-xl'}`}
+                className={`flex-1 h-16 md:h-20 rounded-2xl md:rounded-3xl font-black uppercase tracking-widest text-[10px] md:text-xs flex items-center justify-center gap-4 transition-all ${isGenerating ? 'bg-white/5 text-gray-600 cursor-wait' : 'bg-white text-black hover:scale-[1.02] active:scale-95 shadow-xl'}`}
                >
                  {isGenerating ? <i className="fas fa-atom fa-spin"></i> : <i className="fas fa-sparkles"></i>}
                  {isGenerating ? 'Synthesizing Biological Data...' : 'Generate Neural Identity'}
@@ -338,7 +338,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ onClose, onSave, currentP
                {previewUrl && (
                  <button 
                   onClick={handleFinalize}
-                  className="px-10 h-20 rounded-3xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 shadow-xl shadow-blue-500/20"
+                  className="px-6 md:px-10 h-16 md:h-20 rounded-2xl md:rounded-3xl bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] md:text-xs hover:scale-[1.02] active:scale-95 shadow-xl shadow-blue-500/20"
                  >
                    Establish Link
                  </button>
@@ -347,7 +347,7 @@ const AvatarBuilder: React.FC<AvatarBuilderProps> = ({ onClose, onSave, currentP
           </div>
 
           {/* Preview Canvas */}
-          <div className="w-full lg:w-[450px] bg-black/50 border-l border-white/5 flex flex-col items-center justify-center p-8 lg:p-12 relative overflow-hidden">
+          <div className="w-full lg:w-[450px] bg-black/50 border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col items-center justify-center p-6 md:p-8 lg:p-12 relative overflow-hidden">
              {/* Sims-like Backdrop */}
              <div className="absolute inset-0 opacity-10 pointer-events-none">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] bg-[radial-gradient(circle,rgba(59,130,246,0.3)_0%,transparent_70%)] animate-slow-spin"></div>

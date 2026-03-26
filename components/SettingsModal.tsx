@@ -33,8 +33,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       <div className="w-full max-w-5xl bg-[#02020a] border border-white/10 rounded-[3rem] lg:rounded-[4rem] relative flex flex-col h-[85vh] shadow-2xl overflow-hidden">
         
         {/* Navigation Tabs */}
-        <div className="flex items-center justify-between p-8 border-b border-white/5 flex-shrink-0">
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+        <div className="flex items-center justify-between p-4 md:p-8 border-b border-white/5 flex-shrink-0">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
             <button onClick={() => setActiveTab('IDENTITY')} className={tabClass('IDENTITY')}>Identity</button>
             <button onClick={() => setActiveTab('VISUALS')} className={tabClass('VISUALS')}>Visuals</button>
             <button onClick={() => setActiveTab('AUDIO')} className={tabClass('AUDIO')}>Audio Tuning</button>
@@ -43,7 +43,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors p-2"><i className="fas fa-times text-xl"></i></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 lg:p-12 scrollbar-thin space-y-12">
+        <div className="flex-1 overflow-y-auto p-6 md:p-12 scrollbar-thin space-y-12">
           
           {activeTab === 'IDENTITY' && (
             <div className="space-y-10 animate-slide-up-reveal">
@@ -241,8 +241,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
 
-        <div className="p-8 border-t border-white/5 bg-black/40 text-center flex-shrink-0">
-          <button onClick={onClose} className="w-full py-5 bg-white text-black font-black uppercase tracking-widest rounded-2xl hover:scale-[1.02] active:scale-95 transition-all text-xs">Commit Neural Link Changes</button>
+        <div className="p-6 md:p-8 border-t border-white/5 bg-black/40 text-center flex-shrink-0">
+          <button onClick={onClose} className="w-full py-4 md:py-5 bg-white text-black font-black uppercase tracking-widest rounded-2xl hover:scale-[1.02] active:scale-95 transition-all text-xs">Commit Neural Link Changes</button>
         </div>
       </div>
     </div>

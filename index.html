@@ -29,8 +29,17 @@
             --ui-radius: 2.5rem;
             --bg-base: #02020a;
             --ui-font: 'Inter', sans-serif;
+            --bubble-radius: 2.5rem;
         }
         @supports (height: 100dvh) { :root { --dvh: 100dvh; } }
+
+        @media (max-width: 768px) {
+            :root {
+                --ui-gap: 0.75rem;
+                --ui-radius: 1.5rem;
+                --bubble-radius: 1.5rem;
+            }
+        }
 
         body {
             background-color: var(--bg-base);

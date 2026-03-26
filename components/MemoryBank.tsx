@@ -7,9 +7,10 @@ interface MemoryBankProps {
   onAdd: (fact: string) => void;
   onPurge: () => void;
   assistantName: string;
+  onClose?: () => void;
 }
 
-const MemoryBank: React.FC<MemoryBankProps> = ({ memories, onRemove, onAdd, onPurge, assistantName }) => {
+const MemoryBank: React.FC<MemoryBankProps> = ({ memories, onRemove, onAdd, onPurge, assistantName, onClose }) => {
   const [filter, setFilter] = useState('');
   const [manualInput, setManualInput] = useState('');
 
@@ -38,12 +39,22 @@ const MemoryBank: React.FC<MemoryBankProps> = ({ memories, onRemove, onAdd, onPu
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
               Bio-Core Memory
             </h3>
-            <button 
-              onClick={onPurge}
-              className="text-[8px] font-black text-red-500/50 hover:text-red-500 uppercase tracking-widest transition-colors"
-            >
-              Purge Core
-            </button>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={onPurge}
+                className="text-[8px] font-black text-red-500/50 hover:text-red-500 uppercase tracking-widest transition-colors"
+              >
+                Purge Core
+              </button>
+              {onClose && (
+                <button 
+                  onClick={onClose}
+                  className="md:hidden text-gray-500 hover:text-white transition-colors"
+                >
+                  <i className="fas fa-times text-lg"></i>
+                </button>
+              )}
+            </div>
           </div>
           
           <div className="relative">
