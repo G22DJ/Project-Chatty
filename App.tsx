@@ -88,7 +88,7 @@ const TranscriptionBubble = React.memo(({ entry, deleteTranscription, themePrima
         `}>
           <button 
             onClick={() => deleteTranscription(entry.id)}
-            className={`absolute ${entry.sender === 'user' ? '-left-6 md:-left-8' : '-right-6 md:-right-8'} top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-40 hover:!opacity-100 text-red-500 transition-all p-2 active:scale-90 z-10`}
+            className={`absolute ${entry.sender === 'user' ? '-left-6 md:-left-8' : '-right-6 md:-right-8'} top-1/2 -translate-y-1/2 opacity-100 md:opacity-0 group-hover/item:opacity-40 hover:!opacity-100 text-red-500 transition-all p-2 active:scale-90 z-10`}
           >
             <i className="fas fa-trash-alt text-[10px] md:text-sm"></i>
           </button>
@@ -153,6 +153,19 @@ const App = () => {
   const [prefs, setPrefs] = useState<UserPreferences>(DEFAULT_PREFS);
   const [state, setState] = useState<AssistantState>(AssistantState.IDLE);
   const [device, setDevice] = useState<DeviceType>('desktop');
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < 768) setDevice('mobile');
+      else if (width < 1024) setDevice('tablet');
+      else setDevice('desktop');
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [sensorData, setSensorData] = useState<SensorData>({ online: navigator.onLine, platform: navigator.platform });
   const [transcriptions, setTranscriptions] = useState<TranscriptionEntry[]>([]);
   const [streamingUserText, setStreamingUserText] = useState('');
@@ -432,8 +445,15 @@ const App = () => {
       sessionPromiseRef.current = sessionPromise;
       sessionRef.current = await sessionPromise;
     } catch (err: any) { 
-      if (err?.message?.includes("Requested entity was not found") && window.aistudio) await window.aistudio.openSelectKey();
-      setErrorToast(err.message); 
+      const msg = err.message?.toLowerCase() || "";
+      if (err?.message?.includes("Requested entity was not found") && window.aistudio) {
+        await window.aistudio.openSelectKey();
+      }
+      if (err.name === 'NotAllowedError' || msg.includes("permission denied") || msg.includes("permision dennied")) {
+        setErrorToast("Permission denied: Neural link requires microphone access.");
+      } else {
+        setErrorToast("Neural Link Error: " + (err.message || "Unknown error"));
+      }
       setState(AssistantState.IDLE); 
       setTimeout(() => setErrorToast(null), 5000); 
     }
@@ -494,7 +514,14 @@ const App = () => {
             setErrorToast("Failed to restart session with vision.");
           }
         }, 600); }
-      } catch (err) { setErrorToast("Optic hardware link failed."); }
+      } catch (err: any) { 
+        const msg = err.message?.toLowerCase() || "";
+        if (err.name === 'NotAllowedError' || msg.includes("permission denied") || msg.includes("permision dennied")) {
+          setErrorToast("Permission denied: Optic hardware link aborted by user.");
+        } else {
+          setErrorToast("Optic hardware link failed: " + (err.message || "Unknown error"));
+        }
+      }
     }
   };
 
@@ -503,6 +530,10 @@ const App = () => {
       setIsScreenSharing(false);
       if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); setScreenStream(null); }
     } else {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        setErrorToast("Neural Link Error: Screen capture is not supported on this device/browser.");
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         setScreenStream(stream);
@@ -519,7 +550,14 @@ const App = () => {
           }
         }, 600); }
         stream.getVideoTracks()[0].onended = () => { setIsScreenSharing(false); setScreenStream(null); };
-      } catch (err) { setErrorToast("Uplink negotiation aborted."); }
+      } catch (err: any) { 
+        const msg = err.message?.toLowerCase() || "";
+        if (err.name === 'NotAllowedError' || msg.includes("permission denied") || msg.includes("permision dennied")) {
+          setErrorToast("Permission denied: Screen capture uplink aborted by user or system.");
+        } else {
+          setErrorToast("Uplink negotiation aborted: " + (err.message || "Unknown error"));
+        }
+      }
     }
   };
 
