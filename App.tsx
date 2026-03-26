@@ -318,7 +318,7 @@ const App = () => {
   const startSession = async (initialText?: string) => {
     try {
       setState(AssistantState.CONNECTING);
-      const apiKey = process.env.API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) throw new Error("API Authentication failure.");
       const ai = new GoogleGenAI({ apiKey });
       audioContextRef.current = {
@@ -526,7 +526,7 @@ const App = () => {
     if (previewingVoiceId) return;
     setPreviewingVoiceId(voiceId);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: `Link established.` }] }],
