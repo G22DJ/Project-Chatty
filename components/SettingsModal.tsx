@@ -29,15 +29,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const tabClass = (tab: typeof activeTab) => `px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-gray-500 hover:text-white'}`;
 
   return (
-    <div className="fixed inset-0 z-[150] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-2 md:p-4 lg:p-8 animate-fade-in">
-      <div className="w-full max-w-5xl bg-[#02020a] border border-white/10 rounded-[2rem] md:rounded-[3rem] lg:rounded-[4rem] relative flex flex-col h-[95vh] md:h-[85vh] shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[150] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 lg:p-8 animate-fade-in">
+      <div className="w-full max-w-5xl bg-[#02020a] border border-white/10 rounded-[3rem] lg:rounded-[4rem] relative flex flex-col h-[85vh] shadow-2xl overflow-hidden">
         
         {/* Navigation Tabs */}
-        <div className="flex items-center justify-between p-3 md:p-8 border-b border-white/5 flex-shrink-0">
-          <div className="flex gap-1 md:gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
+        <div className="flex items-center justify-between p-4 md:p-8 border-b border-white/5 flex-shrink-0">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
             <button onClick={() => setActiveTab('IDENTITY')} className={tabClass('IDENTITY')}>Identity</button>
             <button onClick={() => setActiveTab('VISUALS')} className={tabClass('VISUALS')}>Visuals</button>
-            <button onClick={() => setActiveTab('AUDIO')} className={tabClass('AUDIO')}>Audio</button>
+            <button onClick={() => setActiveTab('AUDIO')} className={tabClass('AUDIO')}>Audio Tuning</button>
             <button onClick={() => setActiveTab('SYSTEM')} className={tabClass('SYSTEM')}>Directives</button>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors p-2"><i className="fas fa-times text-xl"></i></button>
