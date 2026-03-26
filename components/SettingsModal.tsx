@@ -215,6 +215,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Direct Personality Matrix</label>
                   <textarea value={prefs.customPersonality} onChange={(e) => setPrefs(p => ({ ...p, customPersonality: e.target.value }))} placeholder="Provide specific behavior instructions..." className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 text-xs font-mono text-gray-400 focus:border-[var(--theme-primary)] outline-none resize-none" />
                </div>
+
+               <div className="pt-10 border-t border-white/5 space-y-6">
+                  <div className="flex items-center justify-between">
+                     <div className="space-y-1">
+                       <h4 className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Neural Key Management</h4>
+                       <p className="text-[8px] text-gray-500 uppercase tracking-widest">Manage your Gemini API authentication</p>
+                     </div>
+                     <button 
+                       onClick={async () => { if (window.aistudio) await window.aistudio.openSelectKey(); }}
+                       className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-white transition-all"
+                     >
+                       Update API Key
+                     </button>
+                  </div>
+                  <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex items-center gap-4">
+                     <i className="fas fa-info-circle text-amber-500"></i>
+                     <p className="text-[9px] text-amber-500/80 font-bold uppercase leading-relaxed">
+                       Using advanced preview models requires a paid Gemini API key. 
+                       <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline ml-2 hover:text-amber-400">View Billing Documentation</a>
+                     </p>
+                  </div>
+               </div>
             </div>
           )}
         </div>
