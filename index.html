@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#02020a">
+    <title>Project Chatty | Chatty Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Outfit:wght@400;700;900&family=Roboto+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            window.process = window.process || {};
+            window.process.env = window.process.env || {};
+            window.process.env.API_KEY = window.process.env.API_KEY || "";
+            window.global = window.global || window;
+            if (typeof globalThis === 'undefined') { window.globalThis = window; }
+        })();
+    </script>
+    <style>
+        :root {
+            --dvh: 100vh;
+            --safe-area-inset-top: env(safe-area-inset-top, 0px);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+            --theme-primary: #3b82f6;
+            --theme-secondary: #8b5cf6;
+            --theme-glow: rgba(59, 130, 246, 0.4);
+            --ui-gap: 1.5rem;
+            --ui-radius: 2.5rem;
+            --bg-base: #02020a;
+            --ui-font: 'Inter', sans-serif;
+        }
+        @supports (height: 100dvh) { :root { --dvh: 100dvh; } }
+
+        body {
+            background-color: var(--bg-base);
+            color: white;
+            height: var(--dvh);
+            width: 100vw;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            position: fixed;
+            font-family: var(--ui-font);
+        }
+
+        .chatty-bg {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-base);
+            z-index: -1;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        .chatty-bg-energy {
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            top: -50%;
+            left: -50%;
+            background: 
+                radial-gradient(circle at 30% 30%, var(--theme-primary) 0%, transparent 40%),
+                radial-gradient(circle at 70% 60%, var(--theme-secondary) 0%, transparent 40%),
+                radial-gradient(circle at 40% 80%, #1e1b4b 0%, transparent 50%);
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: energy-flow 25s ease-in-out infinite alternate;
+            will-change: transform;
+        }
+        
+        .chatty-bg-grid {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center center;
+            transform: rotateX(45deg) scale(2);
+            transform-origin: center top;
+            opacity: 0.2;
+            animation: grid-drift 60s linear infinite;
+        }
+
+        .chatty-bg-aurora {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(139,92,246,0.1) 50%, rgba(16,185,129,0.1) 100%);
+            filter: blur(100px);
+            opacity: 0.5;
+            animation: aurora-pulse 15s infinite alternate;
+        }
+
+        .chatty-bg-noise {
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.04;
+            pointer-events: none;
+        }
+
+        @keyframes energy-flow {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+            50% { transform: translate(5%, 5%) rotate(5deg) scale(1.1); }
+            100% { transform: translate(-5%, -2%) rotate(-5deg) scale(1); }
+        }
+
+        @keyframes grid-drift {
+            from { background-position: 0 0; }
+            to { background-position: 0 1000px; }
+        }
+
+        @keyframes aurora-pulse {
+            0% { transform: scale(1) translate(0, 0); opacity: 0.3; }
+            50% { transform: scale(1.1) translate(2%, 2%); opacity: 0.5; }
+            100% { transform: scale(1) translate(-2%, -1%); opacity: 0.3; }
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(32px);
+            -webkit-backdrop-filter: blur(32px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--ui-radius);
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        
+        .glass:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        #root { height: 100%; width: 100%; display: flex; flex-direction: column; position: relative; z-index: 1; }
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react-dom": "https://esm.sh/react-dom@^19.2.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div class="chatty-bg">
+        <div class="chatty-bg-energy"></div>
+        <div class="chatty-bg-grid" id="bg-grid"></div>
+        <div class="chatty-bg-aurora" id="bg-aurora"></div>
+        <div class="chatty-bg-noise" id="bg-noise"></div>
+    </div>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
