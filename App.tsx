@@ -177,6 +177,7 @@ const App = () => {
   const activeSourcesRef = useRef(new Set<AudioBufferSourceNode>());
   const micStreamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<any>(null);
+  const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const currentFrameRef = useRef<string | null>(null);
   const frameIntervalRef = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -191,7 +192,9 @@ const App = () => {
   }, [prefs.theme, prefs.primaryColor, prefs.secondaryColor]);
 
   const handleIncomingFrame = useCallback((base64: string) => {
-    currentFrameRef.current = base64;
+    if (sessionPromiseRef.current) {
+      sessionPromiseRef.current.then(s => s.sendRealtimeInput({ video: { data: base64, mimeType: 'image/jpeg' } }));
+    }
   }, []);
 
   useEffect(() => {
@@ -295,8 +298,9 @@ const App = () => {
     setTranscriptions(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const stopSession = useCallback(() => {
+  const stopSession = useCallback((keepScreen = false) => {
     if (sessionRef.current) { try { sessionRef.current.close?.(); } catch(e){} sessionRef.current = null; }
+    sessionPromiseRef.current = null;
     if (micStreamRef.current) { micStreamRef.current.getTracks().forEach(t => t.stop()); micStreamRef.current = null; }
     if (scriptProcessorRef.current) { scriptProcessorRef.current.disconnect(); scriptProcessorRef.current = null; }
     if (audioContextRef.current) {
@@ -304,14 +308,14 @@ const App = () => {
         audioContextRef.current.output.close().catch(() => {});
         audioContextRef.current = null;
     }
-    if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); setScreenStream(null); }
+    if (screenStream && !keepScreen) { screenStream.getTracks().forEach(t => t.stop()); setScreenStream(null); }
     if (frameIntervalRef.current) { window.clearInterval(frameIntervalRef.current); frameIntervalRef.current = null; }
     activeSourcesRef.current.forEach(s => { try { s.stop(); } catch (e) {} });
     activeSourcesRef.current.clear();
     nextStartTimeRef.current = 0;
     setState(AssistantState.IDLE);
-    setIsVisionActive(false);
-    setIsScreenSharing(false);
+    if (!keepScreen) setIsVisionActive(false);
+    if (!keepScreen) setIsScreenSharing(false);
     setStreamingUserText('');
     setStreamingAssistantText('');
   }, [screenStream]);
@@ -366,13 +370,6 @@ const App = () => {
             };
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputCtx.destination);
-            frameIntervalRef.current = window.setInterval(() => {
-              if (currentFrameRef.current) {
-                const frameData = currentFrameRef.current;
-                currentFrameRef.current = null;
-                sessionPromise.then(s => s.sendRealtimeInput({ video: { data: frameData, mimeType: 'image/jpeg' } }));
-              }
-            }, 500); 
             const initialMsg = initialText || prefs.greeting;
             sessionPromise.then(s => s.sendRealtimeInput({ text: initialMsg }));
             if (initialText) addTranscription('user', initialText);
@@ -429,6 +426,7 @@ const App = () => {
           onclose: () => stopSession()
         }
       });
+      sessionPromiseRef.current = sessionPromise;
       sessionRef.current = await sessionPromise;
     } catch (err: any) { 
       if (err?.message?.includes("Requested entity was not found") && window.aistudio) await window.aistudio.openSelectKey();
@@ -478,14 +476,21 @@ const App = () => {
   };
 
   const handleToggleVision = async () => {
-    if (isVisionActive) setIsVisionActive(false);
+    if (isVisionActive && !isScreenSharing) setIsVisionActive(false);
     else {
       try {
         await navigator.mediaDevices.getUserMedia({ video: true });
         setIsScreenSharing(false);
         setIsVisionActive(true);
         if (state === AssistantState.IDLE) startSession();
-        else { stopSession(); setTimeout(() => { setIsVisionActive(true); startSession(); }, 600); }
+        else { stopSession(false); setTimeout(async () => { 
+          try {
+            setIsVisionActive(true); 
+            await startSession(); 
+          } catch (e) {
+            setErrorToast("Failed to restart session with vision.");
+          }
+        }, 600); }
       } catch (err) { setErrorToast("Optic hardware link failed."); }
     }
   };
@@ -501,7 +506,15 @@ const App = () => {
         setIsVisionActive(false);
         setIsScreenSharing(true);
         if (state === AssistantState.IDLE) startSession();
-        else { stopSession(); setTimeout(() => { setScreenStream(stream); setIsScreenSharing(true); startSession(); }, 600); }
+        else { stopSession(true); setTimeout(async () => { 
+          try {
+            setScreenStream(stream); 
+            setIsScreenSharing(true); 
+            await startSession(); 
+          } catch (e) {
+            setErrorToast("Failed to restart session with screen share.");
+          }
+        }, 600); }
         stream.getVideoTracks()[0].onended = () => { setIsScreenSharing(false); setScreenStream(null); };
       } catch (err) { setErrorToast("Uplink negotiation aborted."); }
     }
