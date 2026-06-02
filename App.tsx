@@ -14,12 +14,17 @@ import GroundingSources from './components/GroundingSources';
 import SettingsModal from './components/SettingsModal';
 import IntroSequence from './components/IntroSequence';
 import AvatarBuilder from './components/AvatarBuilder';
+import { DiagnosticTerminal } from './components/DiagnosticTerminal';
 
 const THEMES = {
   cosmic: { primary: '#3b82f6', secondary: '#8b5cf6', glow: 'rgba(59,130,246,0.5)', bg: '#02020a' },
   emerald: { primary: '#10b981', secondary: '#064e3b', glow: 'rgba(16,185,129,0.5)', bg: '#020a05' },
   ruby: { primary: '#f43f5e', secondary: '#9f1239', glow: 'rgba(244,130,246,0.5)', bg: '#0a0202' },
   obsidian: { primary: '#94a3b8', secondary: '#1e293b', glow: 'rgba(148,163,184,0.5)', bg: '#0a0a0a' },
+  whatsapp: { primary: '#25D366', secondary: '#075E54', glow: 'rgba(37,211,102,0.4)', bg: '#0b141a' },
+  facebook: { primary: '#1877F2', secondary: '#4267B2', glow: 'rgba(24,119,242,0.4)', bg: '#f0f2f5' },
+  telegram: { primary: '#0088CC', secondary: '#2481cc', glow: 'rgba(0,136,204,0.4)', bg: '#17212b' },
+  instagram: { primary: '#E1306C', secondary: '#F77737', glow: 'rgba(225,48,108,0.4)', bg: '#000000' },
   custom: { primary: '#ffffff', secondary: '#ffffff', glow: 'rgba(255,255,255,0.5)', bg: '#02020a' }
 };
 
@@ -48,7 +53,12 @@ const DEFAULT_PREFS: UserPreferences = {
   bgStyle: 'grid',
   speechSpeed: 1.0,
   speechPitch: 1.0,
-  greeting: 'Neural link established. How can I assist you today?'
+  greeting: 'Neural link established. How can I assist you today?',
+  glassOpacity: 0.04,
+  glassBlur: '32px',
+  showGrid: true,
+  showNoise: true,
+  headerStyle: 'default'
 };
 
 const saveKnowledgeTool = {
@@ -82,10 +92,10 @@ const TranscriptionBubble = React.memo(({ entry, deleteTranscription, themePrima
           rounded-[var(--bubble-radius,var(--ui-radius))]
           shadow-xl transition-all hover:scale-[1.01] relative
           ${entry.sender === 'user' 
-            ? 'bg-gradient-to-br from-[var(--theme-primary)] to-indigo-600 text-white' 
-            : 'bg-white/[0.04] text-gray-200 border border-white/5 backdrop-blur-xl'
+            ? 'bg-[var(--user-bubble-bg)] text-[var(--user-bubble-text)]' 
+            : 'bg-[var(--agent-bubble-bg)] text-[var(--agent-bubble-text)] border border-white/5 backdrop-blur-xl'
           }
-        `}>
+        `} style={{ background: entry.sender === 'user' ? 'var(--user-bubble-bg)' : 'var(--agent-bubble-bg)' }}>
           <button 
             onClick={() => deleteTranscription(entry.id)}
             className={`absolute ${entry.sender === 'user' ? '-left-6 md:-left-8' : '-right-6 md:-right-8'} top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-40 hover:!opacity-100 text-red-500 transition-all p-2 active:scale-90 z-10`}
@@ -160,6 +170,7 @@ const App = () => {
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAvatarBuilderOpen, setIsAvatarBuilderOpen] = useState(false);
+  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   const [isVisionActive, setIsVisionActive] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
@@ -218,25 +229,69 @@ const App = () => {
     root.style.setProperty('--bg-base', themeData.bg);
     root.style.setProperty('--theme-glow', themeData.glow);
     root.style.setProperty('--ui-radius', prefs.borderRadius);
+
+    // Apply custom colors if present
+    if (prefs.userBubbleColor) root.style.setProperty('--user-bubble-bg', prefs.userBubbleColor);
+    else root.style.setProperty('--user-bubble-bg', themeData.primary);
+    
+    if (prefs.userBubbleTextColor) root.style.setProperty('--user-bubble-text', prefs.userBubbleTextColor);
+    else root.style.setProperty('--user-bubble-text', '#ffffff');
+
+    if (prefs.agentBubbleColor) root.style.setProperty('--agent-bubble-bg', prefs.agentBubbleColor);
+    else root.style.setProperty('--agent-bubble-bg', 'rgba(255, 255, 255, 0.04)');
+
+    if (prefs.agentBubbleTextColor) root.style.setProperty('--agent-bubble-text', prefs.agentBubbleTextColor);
+    else root.style.setProperty('--agent-bubble-text', '#e5e7eb');
+
+    if (prefs.glassOpacity !== undefined) root.style.setProperty('--glass-opacity', prefs.glassOpacity.toString());
+    if (prefs.glassBlur) root.style.setProperty('--glass-blur', prefs.glassBlur);
+
+    if (prefs.bgImage && prefs.bgStyle === 'image') {
+      root.style.setProperty('--bg-image', `url(${prefs.bgImage})`);
+    } else {
+      root.style.setProperty('--bg-image', 'none');
+    }
     
     const fontMap = {
       'Inter': "'Inter', sans-serif",
       'Outfit': "'Outfit', sans-serif",
       'Roboto Mono': "'Roboto Mono', monospace",
-      'Bebas Neue': "'Bebas Neue', cursive"
+      'Bebas Neue': "'Bebas Neue', cursive",
+      'System': "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
     };
     root.style.setProperty('--ui-font', fontMap[prefs.fontFamily] || fontMap['Inter']);
     
     const bgGrid = document.getElementById('bg-grid');
     const bgAurora = document.getElementById('bg-aurora');
     const bgNoise = document.getElementById('bg-noise');
-    if (bgGrid) bgGrid.style.display = prefs.bgStyle === 'grid' ? 'block' : 'none';
-    if (bgAurora) bgAurora.style.display = prefs.bgStyle === 'aurora' ? 'block' : 'none';
-    if (bgNoise) bgNoise.style.display = prefs.bgStyle === 'noise' ? 'block' : 'none';
+    
+    // Theme specific overrides
+    if (prefs.theme === 'whatsapp') {
+      root.style.setProperty('--bubble-radius', '8px');
+      root.style.setProperty('--user-bubble-bg', '#056162');
+      root.style.setProperty('--agent-bubble-bg', '#262d31');
+    } else if (prefs.theme === 'facebook') {
+      root.style.setProperty('--bubble-radius', '20px');
+      root.style.setProperty('--user-bubble-bg', '#0084ff');
+      root.style.setProperty('--agent-bubble-bg', '#e4e6eb');
+      root.style.setProperty('--agent-bubble-text', '#050505');
+    } else if (prefs.theme === 'telegram') {
+      root.style.setProperty('--bubble-radius', '12px');
+      root.style.setProperty('--user-bubble-bg', '#2b5278');
+      root.style.setProperty('--agent-bubble-bg', '#182533');
+    } else if (prefs.theme === 'instagram') {
+      root.style.setProperty('--bubble-radius', '22px');
+      root.style.setProperty('--user-bubble-bg', 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)');
+      root.style.setProperty('--agent-bubble-bg', 'rgba(255, 255, 255, 0.1)');
+    } else {
+      root.style.setProperty('--bubble-radius', prefs.bubbleRadius || (isNaN(parseInt(prefs.borderRadius)) ? prefs.borderRadius : `${Math.max(12, parseInt(prefs.borderRadius) - 8)}px`));
+    }
 
-    const numRadius = parseInt(prefs.borderRadius);
-    root.style.setProperty('--bubble-radius', isNaN(numRadius) ? prefs.borderRadius : `${Math.max(12, numRadius - 8)}px`);
-  }, [themeData, prefs.borderRadius, prefs.fontFamily, prefs.bgStyle]);
+    if (bgGrid) bgGrid.style.display = (prefs.bgStyle === 'grid' && prefs.showGrid) ? 'block' : 'none';
+    if (bgAurora) bgAurora.style.display = prefs.bgStyle === 'aurora' ? 'block' : 'none';
+    if (bgNoise) bgNoise.style.display = (prefs.bgStyle === 'noise' || prefs.showNoise) ? 'block' : 'none';
+
+  }, [themeData, prefs]);
 
   const dynamicVoices = useMemo(() => {
     const isFem = prefs.modality === 'feminine';
@@ -589,6 +644,7 @@ const App = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-4">
+           <button onClick={() => setIsDiagnosticOpen(true)} className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isDiagnosticOpen ? 'bg-[#f85149] text-white shadow-[0_0_20px_rgba(248,81,73,0.4)]' : 'bg-white/5 text-[#f85149] hover:bg-[#1f1515] hover:text-[#f85149]'}`} title="CNS Diagnostic Terminal"><i className="fas fa-laptop-medical text-sm lg:text-lg"></i></button>
            <button onClick={() => setIsSettingsOpen(true)} className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all active:scale-90"><i className="fas fa-sliders-h text-sm lg:text-lg"></i></button>
            <button onClick={() => setIsMemoryOpen(!isMemoryOpen)} className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isMemoryOpen ? 'bg-[var(--theme-primary)] text-white shadow-[0_0_20px_var(--theme-glow)]' : 'bg-white/5 text-gray-400'}`}><i className="fas fa-brain text-sm lg:text-lg"></i></button>
            <button onClick={() => { stopSession(); setUser(null); }} className="w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors active:scale-90"><i className="fas fa-power-off text-sm lg:text-lg"></i></button>
@@ -675,6 +731,8 @@ const App = () => {
       )}
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} prefs={prefs} setPrefs={setPrefs} voices={dynamicVoices} personalities={PERSONALITIES} isTV={false} isWearable={false} onPreviewVoice={handlePreviewVoice} previewingVoiceId={previewingVoiceId} onOpenAvatarBuilder={() => { setIsSettingsOpen(false); setIsAvatarBuilderOpen(true); }} />
+
+      <DiagnosticTerminal isOpen={isDiagnosticOpen} onClose={() => setIsDiagnosticOpen(false)} assistantName={prefs.assistantName} onAddMemory={(fact) => setMemories(p => [...p, { id: Math.random().toString(36).substr(2, 9), fact, timestamp: new Date() }])} username={user?.username || ''} />
 
       {isAvatarBuilderOpen && (
         <AvatarBuilder 

@@ -20,11 +20,22 @@ interface SettingsModalProps {
 const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen, onClose, prefs, setPrefs, voices, personalities, isTV, isWearable, onPreviewVoice, previewingVoiceId, onOpenAvatarBuilder,
 }) => {
-  const [activeTab, setActiveTab] = useState<'IDENTITY' | 'VISUALS' | 'AUDIO' | 'SYSTEM'>('IDENTITY');
+  const [activeTab, setActiveTab] = useState<'IDENTITY' | 'UI STUDIO' | 'AUDIO' | 'SYSTEM'>('IDENTITY');
   if (!isOpen) return null;
 
-  const FONTS: UserPreferences['fontFamily'][] = ['Inter', 'Outfit', 'Roboto Mono', 'Bebas Neue'];
-  const BG_STYLES: BackgroundStyle[] = ['grid', 'aurora', 'noise', 'solid'];
+  const FONTS: UserPreferences['fontFamily'][] = ['Inter', 'Outfit', 'Roboto Mono', 'Bebas Neue', 'System'];
+  const BG_STYLES: BackgroundStyle[] = ['grid', 'aurora', 'noise', 'solid', 'image'];
+  const THEME_OPTIONS: {id: UserPreferences['theme'], name: string, icon: string}[] = [
+    { id: 'cosmic', name: 'Cosmic', icon: 'fa-user-astronaut' },
+    { id: 'emerald', name: 'Emerald', icon: 'fa-leaf' },
+    { id: 'ruby', name: 'Ruby', icon: 'fa-gem' },
+    { id: 'obsidian', name: 'Obsidian', icon: 'fa-moon' },
+    { id: 'whatsapp', name: 'WhatsApp', icon: 'fa-whatsapp' },
+    { id: 'facebook', name: 'Facebook', icon: 'fa-facebook' },
+    { id: 'telegram', name: 'Telegram', icon: 'fa-telegram' },
+    { id: 'instagram', name: 'Instagram', icon: 'fa-instagram' },
+    { id: 'custom', name: 'Studio', icon: 'fa-palette' }
+  ];
 
   const tabClass = (tab: typeof activeTab) => `px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-gray-500 hover:text-white'}`;
 
@@ -36,7 +47,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex items-center justify-between p-4 md:p-8 border-b border-white/5 flex-shrink-0">
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
             <button onClick={() => setActiveTab('IDENTITY')} className={tabClass('IDENTITY')}>Identity</button>
-            <button onClick={() => setActiveTab('VISUALS')} className={tabClass('VISUALS')}>Visuals</button>
+            <button onClick={() => setActiveTab('UI STUDIO')} className={tabClass('UI STUDIO')}>UI Studio</button>
             <button onClick={() => setActiveTab('AUDIO')} className={tabClass('AUDIO')}>Audio Tuning</button>
             <button onClick={() => setActiveTab('SYSTEM')} className={tabClass('SYSTEM')}>Directives</button>
           </div>
@@ -123,49 +134,174 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {activeTab === 'VISUALS' && (
-            <div className="space-y-12 animate-slide-up-reveal">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <div className="space-y-6">
-                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Primary Accent</label>
-                    <div className="flex items-center gap-4">
-                      <input type="color" value={prefs.primaryColor} onChange={(e) => setPrefs(p => ({ ...p, primaryColor: e.target.value, theme: 'custom' }))} className="w-16 h-16 rounded-2xl border-none bg-transparent cursor-pointer" />
-                      <input type="text" value={prefs.primaryColor} onChange={(e) => setPrefs(p => ({ ...p, primaryColor: e.target.value, theme: 'custom' }))} className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 font-mono text-xs uppercase" />
-                    </div>
-                  </div>
-                  <div className="space-y-6">
-                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Glow Color</label>
-                    <div className="flex items-center gap-4">
-                      <input type="color" value={prefs.secondaryColor} onChange={(e) => setPrefs(p => ({ ...p, secondaryColor: e.target.value, theme: 'custom' }))} className="w-16 h-16 rounded-2xl border-none bg-transparent cursor-pointer" />
-                      <input type="text" value={prefs.secondaryColor} onChange={(e) => setPrefs(p => ({ ...p, secondaryColor: e.target.value, theme: 'custom' }))} className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 font-mono text-xs uppercase" />
-                    </div>
-                  </div>
+          {activeTab === 'UI STUDIO' && (
+            <div className="space-y-16 animate-slide-up-reveal">
+               {/* Preset Theme Matrix */}
+               <div className="space-y-6">
+                 <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Interface Blueprint Presets</label>
+                    <span className="text-[8px] bg-white/5 px-2 py-1 rounded text-white/40 uppercase font-bold tracking-widest">{prefs.theme} active</span>
+                 </div>
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                    {THEME_OPTIONS.map(t => {
+                      const isBrand = ['fa-whatsapp', 'fa-facebook', 'fa-telegram', 'fa-instagram'].includes(t.icon);
+                      return (
+                        <button 
+                          key={t.id} 
+                          onClick={() => setPrefs(p => ({ ...p, theme: t.id }))} 
+                          className={`group p-4 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${prefs.theme === t.id ? 'border-[var(--theme-primary)] bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]' : 'border-white/5 bg-white/5 text-gray-500 hover:text-white hover:border-white/10'}`}
+                        >
+                          <i className={`${isBrand ? 'fab' : 'fas'} ${t.icon} text-lg md:text-xl`}></i>
+                          <span className="text-[8px] font-black uppercase tracking-widest">{t.name}</span>
+                        </button>
+                      );
+                    })}
+                 </div>
                </div>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Shell Roundness</label>
-                    <input type="range" min="0" max="80" step="2" value={parseInt(prefs.borderRadius)} onChange={(e) => setPrefs(p => ({ ...p, borderRadius: `${e.target.value}px` }))} className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-[var(--theme-primary)]" />
-                  </div>
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Interface Font</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {FONTS.map(f => (
-                        <button key={f} onClick={() => setPrefs(p => ({ ...p, fontFamily: f }))} className={`py-3 rounded-xl border-2 text-[10px] font-black transition-all ${prefs.fontFamily === f ? 'bg-white text-black border-white' : 'border-white/5 text-gray-500'}`} style={{ fontFamily: f }}>{f}</button>
-                      ))}
+               {/* Advanced UI Builder */}
+               <div className="pt-10 border-t border-white/5 space-y-12">
+                  <header>
+                    <h3 className="text-lg font-black uppercase tracking-tighter">UI Construction Studio</h3>
+                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">Build and modify your own neural interface archetype</p>
+                  </header>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    {/* Colors */}
+                    <div className="space-y-8">
+                       <label className="text-[10px] font-black text-[var(--theme-primary)] uppercase tracking-[0.2em] block mb-4">Color DNA</label>
+                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                          <div className="space-y-3">
+                            <span className="text-[8px] font-bold text-gray-700 uppercase">Primary Accent</span>
+                            <div className="flex items-center gap-3">
+                              <input type="color" value={prefs.primaryColor} onChange={(e) => setPrefs(p => ({ ...p, primaryColor: e.target.value, theme: 'custom' }))} className="w-10 h-10 rounded-xl cursor-pointer bg-transparent" />
+                              <input type="text" value={prefs.primaryColor} onChange={(e) => setPrefs(p => ({ ...p, primaryColor: e.target.value, theme: 'custom' }))} className="flex-1 bg-white/5 border border-white/5 rounded-lg px-3 py-2 font-mono text-[10px]" />
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <span className="text-[8px] font-bold text-gray-700 uppercase">Secondary Accent</span>
+                            <div className="flex items-center gap-3">
+                              <input type="color" value={prefs.secondaryColor} onChange={(e) => setPrefs(p => ({ ...p, secondaryColor: e.target.value, theme: 'custom' }))} className="w-10 h-10 rounded-xl cursor-pointer bg-transparent" />
+                              <input type="text" value={prefs.secondaryColor} onChange={(e) => setPrefs(p => ({ ...p, secondaryColor: e.target.value, theme: 'custom' }))} className="flex-1 bg-white/5 border border-white/5 rounded-lg px-3 py-2 font-mono text-[10px]" />
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <span className="text-[8px] font-bold text-gray-700 uppercase">User Bubble</span>
+                            <div className="flex items-center gap-3">
+                              <input type="color" value={prefs.userBubbleColor || '#3b82f6'} onChange={(e) => setPrefs(p => ({ ...p, userBubbleColor: e.target.value, theme: 'custom' }))} className="w-10 h-10 rounded-xl cursor-pointer bg-transparent" />
+                              <input type="text" value={prefs.userBubbleColor || ''} placeholder="#hex" onChange={(e) => setPrefs(p => ({ ...p, userBubbleColor: e.target.value, theme: 'custom' }))} className="flex-1 bg-white/5 border border-white/5 rounded-lg px-3 py-2 font-mono text-[10px]" />
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <span className="text-[8px] font-bold text-gray-700 uppercase">Assistant Bubble</span>
+                            <div className="flex items-center gap-3">
+                              <input type="color" value={prefs.agentBubbleColor || '#1a1a1a'} onChange={(e) => setPrefs(p => ({ ...p, agentBubbleColor: e.target.value, theme: 'custom' }))} className="w-10 h-10 rounded-xl cursor-pointer bg-transparent" />
+                              <input type="text" value={prefs.agentBubbleColor || ''} placeholder="#hex" onChange={(e) => setPrefs(p => ({ ...p, agentBubbleColor: e.target.value, theme: 'custom' }))} className="flex-1 bg-white/5 border border-white/5 rounded-lg px-3 py-2 font-mono text-[10px]" />
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <span className="text-[8px] font-bold text-gray-700 uppercase">User Text</span>
+                            <div className="flex items-center gap-3">
+                              <input type="color" value={prefs.userBubbleTextColor || '#ffffff'} onChange={(e) => setPrefs(p => ({ ...p, userBubbleTextColor: e.target.value, theme: 'custom' }))} className="w-10 h-10 rounded-xl cursor-pointer bg-transparent" />
+                              <input type="text" value={prefs.userBubbleTextColor || ''} placeholder="#hex" onChange={(e) => setPrefs(p => ({ ...p, userBubbleTextColor: e.target.value, theme: 'custom' }))} className="flex-1 bg-white/5 border border-white/5 rounded-lg px-3 py-2 font-mono text-[10px]" />
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            <span className="text-[8px] font-bold text-gray-700 uppercase">Assistant Text</span>
+                            <div className="flex items-center gap-3">
+                              <input type="color" value={prefs.agentBubbleTextColor || '#e5e7eb'} onChange={(e) => setPrefs(p => ({ ...p, agentBubbleTextColor: e.target.value, theme: 'custom' }))} className="w-10 h-10 rounded-xl cursor-pointer bg-transparent" />
+                              <input type="text" value={prefs.agentBubbleTextColor || ''} placeholder="#hex" onChange={(e) => setPrefs(p => ({ ...p, agentBubbleTextColor: e.target.value, theme: 'custom' }))} className="flex-1 bg-white/5 border border-white/5 rounded-lg px-3 py-2 font-mono text-[10px]" />
+                            </div>
+                          </div>
+                       </div>
+                    </div>
+
+                    {/* Typography & Physics */}
+                    <div className="space-y-8">
+                       <label className="text-[10px] font-black text-[var(--theme-primary)] uppercase tracking-[0.2em] block mb-4">Ergonomics & Physics</label>
+                       
+                       <div className="space-y-4">
+                          <div className="flex justify-between items-center text-[9px] font-black uppercase text-gray-600">
+                             <span>Core Roundness</span>
+                             <span>{prefs.borderRadius}</span>
+                          </div>
+                          <input type="range" min="0" max="64" step="2" value={parseInt(prefs.borderRadius)} onChange={(e) => setPrefs(p => ({ ...p, borderRadius: `${e.target.value}px` }))} className="w-full h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-[var(--theme-primary)]" />
+                       </div>
+
+                       <div className="space-y-4">
+                          <div className="flex justify-between items-center text-[9px] font-black uppercase text-gray-600">
+                             <span>Bubble Curvature</span>
+                             <span>{prefs.bubbleRadius || 'Inherited'}</span>
+                          </div>
+                          <input type="range" min="0" max="64" step="2" value={parseInt(prefs.bubbleRadius || '24')} onChange={(e) => setPrefs(p => ({ ...p, bubbleRadius: `${e.target.value}px`, theme: 'custom' }))} className="w-full h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-[var(--theme-primary)]" />
+                       </div>
+
+                       <div className="space-y-4">
+                          <label className="text-[9px] font-black text-gray-600 uppercase">Typography Engine</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {FONTS.map(f => (
+                              <button key={f} onClick={() => setPrefs(p => ({ ...p, fontFamily: f }))} className={`py-3 rounded-lg border flex flex-col items-center gap-1 transition-all ${prefs.fontFamily === f ? 'bg-[var(--theme-primary)] border-[var(--theme-primary)] text-black' : 'border-white/10 text-gray-600 hover:text-white'}`} style={{ fontFamily: f }}>
+                                <span className="text-[10px] font-bold">Aa</span>
+                                <span className="text-[7px] uppercase font-black tracking-tighter">{f}</span>
+                              </button>
+                            ))}
+                          </div>
+                       </div>
                     </div>
                   </div>
-               </div>
 
-               <div className="space-y-4">
-                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Atmospheric Environment</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {BG_STYLES.map(s => (
-                      <button key={s} onClick={() => setPrefs(p => ({ ...p, bgStyle: s }))} className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${prefs.bgStyle === s ? 'border-[var(--theme-primary)] bg-[var(--theme-primary)]/10' : 'border-white/5 bg-white/5'}`}>
-                        <i className={`fas ${s === 'grid' ? 'fa-th' : s === 'aurora' ? 'fa-wind' : s === 'noise' ? 'fa-braille' : 'fa-stop'} text-lg`}></i>
-                        <span className="text-[8px] font-black uppercase tracking-widest">{s}</span>
-                      </button>
-                    ))}
+                  {/* Backdrop & Atmospheric Studio */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-4">
+                     <div className="space-y-6">
+                        <label className="text-[10px] font-black text-[var(--theme-primary)] uppercase tracking-[0.2em]">Atmospheric Backdrop</label>
+                        <div className="grid grid-cols-3 gap-3">
+                          {BG_STYLES.map(s => (
+                            <button key={s} onClick={() => setPrefs(p => ({ ...p, bgStyle: s }))} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${prefs.bgStyle === s ? 'border-[var(--theme-primary)] bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]' : 'border-white/5 bg-white/5 text-gray-600'}`}>
+                              <i className={`fas ${s === 'grid' ? 'fa-th' : s === 'aurora' ? 'fa-wind' : s === 'noise' ? 'fa-braille' : s === 'solid' ? 'fa-square' : 'fa-image'} text-lg`}></i>
+                              <span className="text-[7px] font-black uppercase tracking-widest">{s}</span>
+                            </button>
+                          ))}
+                        </div>
+                        {prefs.bgStyle === 'image' && (
+                          <input type="text" value={prefs.bgImage || ''} placeholder="Background Image URL (https://...)" onChange={(e) => setPrefs(p => ({ ...p, bgImage: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:border-[var(--theme-primary)]" />
+                        )}
+                     </div>
+
+                     <div className="space-y-8">
+                        <label className="text-[10px] font-black text-[var(--theme-primary)] uppercase tracking-[0.2em]">Material Properties (Glass)</label>
+                        <div className="grid grid-cols-2 gap-10">
+                           <div className="space-y-4">
+                              <div className="flex justify-between items-center text-[9px] font-black uppercase text-gray-600">
+                                 <span>Density</span>
+                                 <span>{Math.round((prefs.glassOpacity || 0.04) * 100)}%</span>
+                              </div>
+                              <input type="range" min="0" max="0.4" step="0.01" value={prefs.glassOpacity} onChange={(e) => setPrefs(p => ({ ...p, glassOpacity: parseFloat(e.target.value), theme: 'custom' }))} className="w-full h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-[var(--theme-primary)]" />
+                           </div>
+                           <div className="space-y-4">
+                              <div className="flex justify-between items-center text-[9px] font-black uppercase text-gray-600">
+                                 <span>Refraction (Blur)</span>
+                                 <span>{prefs.glassBlur}</span>
+                              </div>
+                              <input type="range" min="0" max="80" step="4" value={parseInt(prefs.glassBlur || '32')} onChange={(e) => setPrefs(p => ({ ...p, glassBlur: `${e.target.value}px`, theme: 'custom' }))} className="w-full h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-[var(--theme-primary)]" />
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-10">
+                           <label className="flex items-center gap-3 cursor-pointer group">
+                             <input type="checkbox" checked={prefs.showGrid} onChange={(e) => setPrefs(p => ({ ...p, showGrid: e.target.checked }))} className="hidden" />
+                             <div className={`w-10 h-5 rounded-full transition-all relative ${prefs.showGrid ? 'bg-blue-600' : 'bg-white/10'}`}>
+                               <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${prefs.showGrid ? 'left-6' : 'left-1'}`}></div>
+                             </div>
+                             <span className="text-[9px] font-black uppercase text-gray-600 group-hover:text-white transition-colors">Digital Grid Overlay</span>
+                           </label>
+                           <label className="flex items-center gap-3 cursor-pointer group">
+                             <input type="checkbox" checked={prefs.showNoise} onChange={(e) => setPrefs(p => ({ ...p, showNoise: e.target.checked }))} className="hidden" />
+                             <div className={`w-10 h-5 rounded-full transition-all relative ${prefs.showNoise ? 'bg-blue-600' : 'bg-white/10'}`}>
+                               <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${prefs.showNoise ? 'left-6' : 'left-1'}`}></div>
+                             </div>
+                             <span className="text-[9px] font-black uppercase text-gray-600 group-hover:text-white transition-colors">Film Grain Texture</span>
+                           </label>
+                        </div>
+                     </div>
                   </div>
                </div>
             </div>

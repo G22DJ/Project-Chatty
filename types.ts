@@ -12,9 +12,9 @@ export enum AssistantState {
 
 export type DeviceType = 'wear' | 'mobile' | 'desktop' | 'tv' | 'auto';
 
-export type UITheme = 'cosmic' | 'emerald' | 'ruby' | 'obsidian' | 'custom';
+export type UITheme = 'cosmic' | 'emerald' | 'ruby' | 'obsidian' | 'whatsapp' | 'facebook' | 'telegram' | 'instagram' | 'custom';
 export type PersonalityType = 'professional' | 'friendly' | 'witty' | 'minimalist' | 'alluring' | 'custom';
-export type BackgroundStyle = 'grid' | 'aurora' | 'noise' | 'solid';
+export type BackgroundStyle = 'grid' | 'aurora' | 'noise' | 'solid' | 'image';
 
 export interface GroundingSource {
   title: string;
@@ -75,11 +75,24 @@ export interface UserPreferences {
   primaryColor: string;
   secondaryColor: string;
   borderRadius: string; 
-  fontFamily: 'Inter' | 'Roboto Mono' | 'Outfit' | 'Bebas Neue';
+  fontFamily: 'Inter' | 'Roboto Mono' | 'Outfit' | 'Bebas Neue' | 'System';
   bgStyle: BackgroundStyle;
+  bgImage?: string;
   speechSpeed: number; 
   speechPitch: number; 
   greeting: string;
+
+  // New UI Customization Specs
+  bubbleRadius?: string;
+  userBubbleColor?: string;
+  userBubbleTextColor?: string;
+  agentBubbleColor?: string;
+  agentBubbleTextColor?: string;
+  glassOpacity?: number;
+  glassBlur?: string;
+  showGrid?: boolean;
+  showNoise?: boolean;
+  headerStyle?: 'default' | 'minimal' | 'floating';
 
   /**
    * Optional configuration for the AI's generated avatar.
