@@ -245,7 +245,7 @@ export const VrmAvatarViewer: React.FC<VrmAvatarViewerProps> = ({
       0.1,
       20
     );
-    camera.position.set(0, 1.45, 0.55); // Default zoomed-in framing
+    camera.position.set(0, 1.4, 1.5); // Default framing
 
     renderer = new THREE.WebGLRenderer({
       canvas,
@@ -261,12 +261,14 @@ export const VrmAvatarViewer: React.FC<VrmAvatarViewerProps> = ({
     renderer.toneMappingExposure = 1.0;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    // 2. OrbitControls with limits (zoom disabled) so user doesn't get lost
+    // 2. OrbitControls with limits so user doesn't get lost
     controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1.4, 0); // initial focus
-    controls.enableZoom = false; // Disable zooming completely as requested
+    controls.target.set(0, 1.3, 0); // initial focus
+    controls.enableZoom = true; // Enable zoom effect as requested
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.minDistance = 0.4;
+    controls.maxDistance = 5.0;
     controls.minPolarAngle = Math.PI / 4; // Allow looking slightly more from below/above
     controls.maxPolarAngle = Math.PI / 1.7;
     controls.update();
@@ -353,9 +355,9 @@ export const VrmAvatarViewer: React.FC<VrmAvatarViewerProps> = ({
           }
         }
 
-        // Beautiful default crop centered exactly at the face (zoomed-in to target/focus coordinates)
-        controls.target.set(0, headHeight - 0.02, 0);
-        camera.position.set(0, headHeight, 0.55); // Zoomed in close-up of face/shoulders
+        // Beautiful default crop centered exactly at the face
+        controls.target.set(0, headHeight - 0.05, 0);
+        camera.position.set(0, headHeight, 1.1); // Slightly closer and clean frame
         controls.update();
 
         // Autodetect gaze/lookAt target setting if exists
