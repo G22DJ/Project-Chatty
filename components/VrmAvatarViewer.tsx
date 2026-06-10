@@ -44,9 +44,157 @@ export const VrmAvatarViewer: React.FC<VrmAvatarViewerProps> = ({
 
   // Settings
   const [showConfig, setShowConfig] = useState(false);
+  const [showVmcPanel, setShowVmcPanel] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [customUrlInput, setCustomUrlInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // VMC State and Connection
+  const [vmcUrl, setVmcUrl] = useState('ws://127.0.0.1:39539');
+  const [vmcState, setVmcState] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [vmcHz, setVmcHz] = useState(0);
+
+  // VMC Settings Options
+  const [applyRotations, setApplyRotations] = useState(true);
+  const [applyPositions, setApplyPositions] = useState(true);
+  const [applyBlends, setApplyBlends] = useState(true);
+  const [mirrorX, setMirrorX] = useState(false);
+
+  // Refs for tracking VMC values safely
+  const vmcBonesRef = useRef<Map<string, { pos?: [number, number, number]; rot?: [number, number, number, number] }>>(new Map());
+  const vmcBlendsRef = useRef<Map<string, number>>(new Map());
+  const vmcWsRef = useRef<WebSocket | null>(null);
+  const vmcHzIntervalRef = useRef<any>(null);
+  const messageCountRef = useRef(0);
+  
+  // Keep live copies of the toggles so the animation frame loop reads them instantly without stale closure problems
+  const vmcOptsRef = useRef({
+    connected: false,
+    applyRotations: true,
+    applyPositions: true,
+    applyBlends: true,
+    mirrorX: false
+  });
+
+  useEffect(() => {
+    vmcOptsRef.current = {
+      connected: vmcState === 'connected',
+      applyRotations,
+      applyPositions,
+      applyBlends,
+      mirrorX
+    };
+  }, [vmcState, applyRotations, applyPositions, applyBlends, mirrorX]);
+
+  const disconnectVmc = () => {
+    if (vmcWsRef.current) {
+      try {
+        vmcWsRef.current.close();
+      } catch (err) {}
+      vmcWsRef.current = null;
+    }
+    if (vmcHzIntervalRef.current) {
+      clearInterval(vmcHzIntervalRef.current);
+      vmcHzIntervalRef.current = null;
+    }
+    setVmcState('disconnected');
+    setVmcHz(0);
+    messageCountRef.current = 0;
+  };
+
+  const connectVmc = () => {
+    disconnectVmc();
+    
+    setVmcState('connecting');
+    try {
+      const ws = new WebSocket(vmcUrl);
+      vmcWsRef.current = ws;
+
+      ws.onopen = () => {
+        setVmcState('connected');
+        messageCountRef.current = 0;
+        
+        // Start Hz calculation interval
+        vmcHzIntervalRef.current = setInterval(() => {
+          setVmcHz(messageCountRef.current);
+          messageCountRef.current = 0;
+        }, 1000);
+      };
+
+      ws.onmessage = (event) => {
+        messageCountRef.current++;
+        try {
+          let data = JSON.parse(event.data);
+          let address = '';
+          let args: any[] = [];
+          
+          if (Array.isArray(data)) {
+            address = data[0];
+            args = data.slice(1);
+          } else if (data && typeof data === 'object') {
+            address = data.address || data.Address || data.msg || '';
+            args = data.args || data.Args || data.data || [];
+          }
+
+          if (address === '/vmc/ext/bone/pos') {
+            const [boneName, px, py, pz, qx, qy, qz, qw] = args;
+            if (typeof boneName === 'string') {
+              vmcBonesRef.current.set(boneName, {
+                pos: [px, py, pz],
+                rot: [qx, qy, qz, qw]
+              });
+            }
+          } else if (address === '/vmc/ext/blend/val') {
+            const [blendName, val] = args;
+            if (typeof blendName === 'string' && typeof val === 'number') {
+              vmcBlendsRef.current.set(blendName, val);
+            }
+          } else if (address === '/vmc/ext/root/pos') {
+            const [rootName, px, py, pz, qx, qy, qz, qw] = args;
+            if (typeof rootName === 'string') {
+              vmcBonesRef.current.set('root', {
+                pos: [px, py, pz],
+                rot: [qx, qy, qz, qw]
+              });
+            }
+          }
+        } catch (e) {
+          // Ignore parse errors if binary/non-JSON data
+        }
+      };
+
+      ws.onerror = (e) => {
+        console.error("VMC WS Error:", e);
+        setVmcState('error');
+      };
+
+      ws.onclose = () => {
+        setVmcState((prev) => (prev === 'connecting' || prev === 'error' ? 'error' : 'disconnected'));
+        if (vmcHzIntervalRef.current) {
+          clearInterval(vmcHzIntervalRef.current);
+          vmcHzIntervalRef.current = null;
+        }
+        setVmcHz(0);
+      };
+    } catch (err) {
+      console.error("VMC connection error:", err);
+      setVmcState('error');
+    }
+  };
+
+  // Ensure unmount safety
+  useEffect(() => {
+    return () => {
+      if (vmcWsRef.current) {
+        try {
+          vmcWsRef.current.close();
+        } catch (err) {}
+      }
+      if (vmcHzIntervalRef.current) {
+        clearInterval(vmcHzIntervalRef.current);
+      }
+    };
+  }, []);
 
   // State refs to prevent model reloading / teardown when speaking state toggled
   const isSpeakingRef = useRef(isSpeaking);
@@ -282,129 +430,194 @@ export const VrmAvatarViewer: React.FC<VrmAvatarViewerProps> = ({
         // Update spring bone physics & update
         vrm.update(deltaTime);
 
-        // A. Breathing animation (idle micro-movement)
-        const spine = vrm.humanoid?.getNormalizedBoneNode('spine') || vrm.humanoid?.getRawBoneNode('spine');
-        if (spine) {
-          spine.rotation.z = Math.sin(elapsedTime * 1.5) * 0.01;
-          spine.rotation.x = Math.sin(elapsedTime * 1.0) * 0.008;
-        }
+        const vmcOpts = vmcOptsRef.current;
+        if (vmcOpts.connected) {
+          // --- VMC ACTIVE RENDERING AND ROTATIONS ---
+          if (vmcOpts.applyRotations) {
+            vmcBonesRef.current.forEach((boneData, boneName) => {
+              if (!boneData.rot) return;
+              
+              let vrmBoneName = boneName;
+              if (boneName.length > 0) {
+                // Map Upper CamelCase (from standard Unity VMC) to CamelCase (vrm standard)
+                vrmBoneName = boneName.charAt(0).toLowerCase() + boneName.slice(1);
+              }
 
-        const chest = vrm.humanoid?.getNormalizedBoneNode('chest') || vrm.humanoid?.getRawBoneNode('chest');
-        if (chest) {
-          chest.rotation.z = Math.sin(elapsedTime * 1.3) * 0.006;
-          chest.rotation.x = Math.sin(elapsedTime * 1.1) * 0.005;
-        }
+              const boneNode = vrm.humanoid?.getNormalizedBoneNode(vrmBoneName as any) || vrm.humanoid?.getRawBoneNode(vrmBoneName as any);
+              if (boneNode) {
+                const [qx, qy, qz, qw] = boneData.rot;
+                if (vmcOpts.mirrorX) {
+                  boneNode.quaternion.set(qx, -qy, -qz, qw);
+                } else {
+                  boneNode.quaternion.set(-qx, qy, -qz, qw);
+                }
+              }
+            });
+          }
 
-        // B. Natural Arm Resting Pose (A-Pose instead of rigid T-Pose)
-        const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm') || vrm.humanoid?.getRawBoneNode('leftUpperArm');
-        if (leftUpperArm) {
-          leftUpperArm.rotation.z = -1.2; // Rotate arm down toward hips (approx -70 degrees)
-          leftUpperArm.rotation.x = 0.15; // Slightly forward for a natural standing position
-          leftUpperArm.rotation.y = 0.05;
-        }
-
-        const rightUpperArm = vrm.humanoid?.getNormalizedBoneNode('rightUpperArm') || vrm.humanoid?.getRawBoneNode('rightUpperArm');
-        if (rightUpperArm) {
-          rightUpperArm.rotation.z = 1.2;  // Rotate arm down toward hips (approx +70 degrees)
-          rightUpperArm.rotation.x = 0.15; // Slightly forward for a natural standing position
-          rightUpperArm.rotation.y = -0.05;
-        }
-
-        // Add a micro-bend to the elbows to keep them relaxed rather than hyper-extended
-        const leftLowerArm = vrm.humanoid?.getNormalizedBoneNode('leftLowerArm') || vrm.humanoid?.getRawBoneNode('leftLowerArm');
-        if (leftLowerArm) {
-          leftLowerArm.rotation.y = -0.15;
-        }
-
-        const rightLowerArm = vrm.humanoid?.getNormalizedBoneNode('rightLowerArm') || vrm.humanoid?.getRawBoneNode('rightLowerArm');
-        if (rightLowerArm) {
-          rightLowerArm.rotation.y = 0.15;
-        }
-
-        // C. Mouse interaction (Look-At movement)
-        const head = vrm.humanoid?.getNormalizedBoneNode('head') || vrm.humanoid?.getRawBoneNode('head');
-        const neck = vrm.humanoid?.getNormalizedBoneNode('neck') || vrm.humanoid?.getRawBoneNode('neck');
-
-        // Linear target rotations mapped constraints (head yaw constraint [-45, +45] deg)
-        // Correct lookup calculations (mousePosRef is lag-free)
-        const targetHeadYaw = mousePosRef.current.x * 0.4; // 0.4 radian max
-        const targetHeadPitch = -mousePosRef.current.y * 0.2; // 0.2 radian max
-
-        if (head) {
-          head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, targetHeadYaw, 0.1);
-          head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, targetHeadPitch, 0.1);
-        }
-        if (neck) {
-          neck.rotation.y = THREE.MathUtils.lerp(neck.rotation.y, targetHeadYaw * 0.4, 0.1);
-          neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, targetHeadPitch * 0.4, 0.1);
-        }
-
-        // C. Procedural Lipsync (Speaking animation)
-        let aaValue = 0;
-        let ohValue = 0;
-
-        if (isSpeakingRef.current) {
-          const currentAnalyser = analyserRef.current;
-          if (currentAnalyser) {
-            // Read active spectrum levels from analyzer
-            const freqData = new Uint8Array(currentAnalyser.frequencyBinCount);
-            currentAnalyser.getByteFrequencyData(freqData);
-            
-            // Average mic amplitude to scale vowels
-            let sum = 0;
-            for (let i = 0; i < freqData.length; i++) {
-              sum += freqData[i];
+          // Apply root/hips offsets
+          if (vmcOpts.applyPositions) {
+            const hipsData = vmcBonesRef.current.get('Hips') || vmcBonesRef.current.get('hips');
+            if (hipsData && hipsData.pos) {
+              const hipsNode = vrm.humanoid?.getNormalizedBoneNode('hips') || vrm.humanoid?.getRawBoneNode('hips');
+              if (hipsNode) {
+                const [px, py, pz] = hipsData.pos;
+                if (vmcOpts.mirrorX) {
+                  hipsNode.position.set(px, py, pz);
+                } else {
+                  hipsNode.position.set(-px, py, pz);
+                }
+              }
             }
-            const avgAmplitude = sum / freqData.length;
-            const volumeMultiplier = Math.min(avgAmplitude / 70, 1.0); // Normalize to 0-1 range
+          }
 
-            // Shift between vowel presets using modulated time
-            aaValue = volumeMultiplier * (0.6 + 0.4 * Math.sin(elapsedTime * 20));
-            ohValue = volumeMultiplier * (0.3 + 0.3 * Math.cos(elapsedTime * 14));
-          } else {
-            // Fallback: procedural sine wave lip-sync
-            const speechVolume = 0.7 + 0.3 * Math.sin(elapsedTime * 15);
-            aaValue = Math.max(0, Math.sin(elapsedTime * 20)) * speechVolume;
-            ohValue = Math.max(0, Math.cos(elapsedTime * 12)) * (1.0 - aaValue) * 0.4;
+          // Apply blendshapes
+          if (vmcOpts.applyBlends) {
+            const currentExpManager = vrm.expressionManager;
+            const currentBSSystem = (vrm as any).blendShapeProxy;
+
+            vmcBlendsRef.current.forEach((val, blendName) => {
+              let key = blendName.toLowerCase();
+              if (key === 'a' || key === 'aa') key = 'aa';
+              if (key === 'i' || key === 'ih') key = 'ih';
+              if (key === 'u' || key === 'ou') key = 'ou';
+              if (key === 'e' || key === 'ee') key = 'ee';
+              if (key === 'o' || key === 'oh') key = 'oh';
+
+              if (currentExpManager) {
+                currentExpManager.setValue(key as any, val);
+              } else if (currentBSSystem) {
+                currentBSSystem.setValue(blendName as any, val);
+              }
+            });
+          }
+        } else {
+          // --- STANDARD PROCEDURAL IDLE AND MOUSE COUPLING ---
+          // A. Breathing animation (idle micro-movement)
+          const spine = vrm.humanoid?.getNormalizedBoneNode('spine') || vrm.humanoid?.getRawBoneNode('spine');
+          if (spine) {
+            spine.rotation.z = Math.sin(elapsedTime * 1.5) * 0.01;
+            spine.rotation.x = Math.sin(elapsedTime * 1.0) * 0.008;
+          }
+
+          const chest = vrm.humanoid?.getNormalizedBoneNode('chest') || vrm.humanoid?.getRawBoneNode('chest');
+          if (chest) {
+            chest.rotation.z = Math.sin(elapsedTime * 1.3) * 0.006;
+            chest.rotation.x = Math.sin(elapsedTime * 1.1) * 0.005;
+          }
+
+          // B. Natural Arm Resting Pose (A-Pose instead of rigid T-Pose)
+          const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm') || vrm.humanoid?.getRawBoneNode('leftUpperArm');
+          if (leftUpperArm) {
+            leftUpperArm.rotation.z = -1.2; // Rotate arm down toward hips (approx -70 degrees)
+            leftUpperArm.rotation.x = 0.15; // Slightly forward for a natural standing position
+            leftUpperArm.rotation.y = 0.05;
+          }
+
+          const rightUpperArm = vrm.humanoid?.getNormalizedBoneNode('rightUpperArm') || vrm.humanoid?.getRawBoneNode('rightUpperArm');
+          if (rightUpperArm) {
+            rightUpperArm.rotation.z = 1.2;  // Rotate arm down toward hips (approx +70 degrees)
+            rightUpperArm.rotation.x = 0.15; // Slightly forward for a natural standing position
+            rightUpperArm.rotation.y = -0.05;
+          }
+
+          // Add a micro-bend to the elbows to keep them relaxed rather than hyper-extended
+          const leftLowerArm = vrm.humanoid?.getNormalizedBoneNode('leftLowerArm') || vrm.humanoid?.getRawBoneNode('leftLowerArm');
+          if (leftLowerArm) {
+            leftLowerArm.rotation.y = -0.15;
+          }
+
+          const rightLowerArm = vrm.humanoid?.getNormalizedBoneNode('rightLowerArm') || vrm.humanoid?.getRawBoneNode('rightLowerArm');
+          if (rightLowerArm) {
+            rightLowerArm.rotation.y = 0.15;
+          }
+
+          // C. Mouse interaction (Look-At movement)
+          const head = vrm.humanoid?.getNormalizedBoneNode('head') || vrm.humanoid?.getRawBoneNode('head');
+          const neck = vrm.humanoid?.getNormalizedBoneNode('neck') || vrm.humanoid?.getRawBoneNode('neck');
+
+          const targetHeadYaw = mousePosRef.current.x * 0.4; // 0.4 radian max
+          const targetHeadPitch = -mousePosRef.current.y * 0.2; // 0.2 radian max
+
+          if (head) {
+            head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, targetHeadYaw, 0.1);
+            head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, targetHeadPitch, 0.1);
+          }
+          if (neck) {
+            neck.rotation.y = THREE.MathUtils.lerp(neck.rotation.y, targetHeadYaw * 0.4, 0.1);
+            neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, targetHeadPitch * 0.4, 0.1);
           }
         }
 
-        // Blend shape system (Supports both VRM 1.0 ExpressionManager and VRM 0.x BlendShapeProxy fallbacks)
+        // --- PROC SPEECH & BLINK (Overlay fallback if VMC doesn't send expression blends) ---
         const currentExpManager = vrm.expressionManager;
         const currentBSSystem = (vrm as any).blendShapeProxy;
 
-        if (currentExpManager) {
-          currentExpManager.setValue('aa', aaValue);
-          currentExpManager.setValue('oh', ohValue);
-        } else if (currentBSSystem) {
-          currentBSSystem.setValue('A', aaValue);
-          currentBSSystem.setValue('O', ohValue);
-        }
+        const hasVmcBlends = vmcOpts.connected && vmcOpts.applyBlends && vmcBlendsRef.current.size > 0;
+        
+        if (!hasVmcBlends) {
+          let aaValue = 0;
+          let ohValue = 0;
 
-        // D. Random Blinking Mechanism
-        const curTime = elapsedTime;
-        if (!isBlinking && curTime - lastBlinkTime > nextBlinkInterval) {
-          isBlinking = true;
-          lastBlinkTime = curTime;
-        }
+          if (isSpeakingRef.current) {
+            const currentAnalyser = analyserRef.current;
+            if (currentAnalyser) {
+              // Read active spectrum levels from analyzer
+              const freqData = new Uint8Array(currentAnalyser.frequencyBinCount);
+              currentAnalyser.getByteFrequencyData(freqData);
+              
+              // Average mic amplitude to scale vowels
+              let sum = 0;
+              for (let i = 0; i < freqData.length; i++) {
+                sum += freqData[i];
+              }
+              const avgAmplitude = sum / freqData.length;
+              const volumeMultiplier = Math.min(avgAmplitude / 70, 1.0); // Normalize to 0-1 range
 
-        if (isBlinking) {
-          const blinkProgress = (curTime - lastBlinkTime) / blinkDuration;
-          if (blinkProgress >= 1.0) {
-            isBlinking = false;
-            nextBlinkInterval = 3 + Math.random() * 5; // schedule next blink
-            if (currentExpManager) {
-              currentExpManager.setValue('blink', 0);
-            } else if (currentBSSystem) {
-              currentBSSystem.setValue('Blink', 0);
+              // Shift between vowel presets using modulated time
+              aaValue = volumeMultiplier * (0.6 + 0.4 * Math.sin(elapsedTime * 20));
+              ohValue = volumeMultiplier * (0.3 + 0.3 * Math.cos(elapsedTime * 14));
+            } else {
+              // Fallback: procedural sine wave lip-sync
+              const speechVolume = 0.7 + 0.3 * Math.sin(elapsedTime * 15);
+              aaValue = Math.max(0, Math.sin(elapsedTime * 20)) * speechVolume;
+              ohValue = Math.max(0, Math.cos(elapsedTime * 12)) * (1.0 - aaValue) * 0.4;
             }
-          } else {
-            // Triangular wave function for blink loop: 0 -> 1 -> 0
-            const blinkVal = Math.sin(blinkProgress * Math.PI);
-            if (currentExpManager) {
-              currentExpManager.setValue('blink', blinkVal);
-            } else if (currentBSSystem) {
-              currentBSSystem.setValue('Blink', blinkVal);
+          }
+
+          if (currentExpManager) {
+            currentExpManager.setValue('aa', aaValue);
+            currentExpManager.setValue('oh', ohValue);
+          } else if (currentBSSystem) {
+            currentBSSystem.setValue('A', aaValue);
+            currentBSSystem.setValue('O', ohValue);
+          }
+
+          // D. Random Blinking Mechanism
+          const curTime = elapsedTime;
+          if (!isBlinking && curTime - lastBlinkTime > nextBlinkInterval) {
+            isBlinking = true;
+            lastBlinkTime = curTime;
+          }
+
+          if (isBlinking) {
+            const blinkProgress = (curTime - lastBlinkTime) / blinkDuration;
+            if (blinkProgress >= 1.0) {
+              isBlinking = false;
+              nextBlinkInterval = 3 + Math.random() * 5; // schedule next blink
+              if (currentExpManager) {
+                currentExpManager.setValue('blink', 0);
+              } else if (currentBSSystem) {
+                currentBSSystem.setValue('Blink', 0);
+              }
+            } else {
+              // Triangular wave function for blink loop: 0 -> 1 -> 0
+              const blinkVal = Math.sin(blinkProgress * Math.PI);
+              if (currentExpManager) {
+                currentExpManager.setValue('blink', blinkVal);
+              } else if (currentBSSystem) {
+                currentBSSystem.setValue('Blink', blinkVal);
+              }
             }
           }
         }
@@ -530,11 +743,24 @@ export const VrmAvatarViewer: React.FC<VrmAvatarViewerProps> = ({
       <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center z-30 pointer-events-none">
         <div className="flex gap-2 pointer-events-auto">
           <button 
-            onClick={() => setShowConfig(!showConfig)}
-            className="w-10 h-10 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-white/15 transition-all active:scale-90"
+            onClick={() => {
+              setShowConfig(!showConfig);
+              setShowVmcPanel(false);
+            }}
+            className={`w-10 h-10 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all active:scale-90 ${showConfig ? 'text-blue-400 border-blue-500/50 bg-blue-500/10' : 'text-white hover:bg-white/15'}`}
             title="Model Settings"
           >
             <i className="fas fa-sliders-h text-sm"></i>
+          </button>
+          <button 
+            onClick={() => {
+              setShowVmcPanel(!showVmcPanel);
+              setShowConfig(false);
+            }}
+            className={`w-10 h-10 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all active:scale-90 ${showVmcPanel ? 'text-blue-400 border-blue-500/50 bg-blue-500/10' : 'text-white hover:bg-white/15'}`}
+            title="VMC Motion Capture Receiver"
+          >
+            <i className="fas fa-broadcast-tower text-sm"></i>
           </button>
           <button 
             onClick={() => fileInputRef.current?.click()}
@@ -560,7 +786,11 @@ export const VrmAvatarViewer: React.FC<VrmAvatarViewerProps> = ({
         </div>
 
         <span className="bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-xl font-mono text-[9px] text-gray-400 font-bold uppercase tracking-wider">
-          {isSpeaking ? (
+          {vmcState === 'connected' ? (
+            <span className="text-blue-400 animate-pulse flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span> VMC Active ({vmcHz}Hz)
+            </span>
+          ) : isSpeaking ? (
             <span className="text-emerald-400 animate-pulse flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Voice Active
             </span>
@@ -579,9 +809,114 @@ export const VrmAvatarViewer: React.FC<VrmAvatarViewerProps> = ({
         </div>
       </div>
 
+      {/* VMC Feed Receiver Control Panel */}
+      {showVmcPanel && (
+        <div className="absolute inset-x-4 bottom-16 bg-black/95 backdrop-blur-xl border border-white/10 rounded-2xl p-4 z-40 animate-slide-up-reveal flex flex-col gap-3.5 pointer-events-auto">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${vmcState === 'connected' ? 'bg-emerald-500' : vmcState === 'connecting' ? 'bg-amber-400' : 'bg-blue-500'} animate-pulse`}></span>
+              <h5 className="font-black text-white uppercase tracking-wider text-xs">VMC Motion Receiver</h5>
+            </div>
+            <button 
+              onClick={() => setShowVmcPanel(false)} 
+              className="text-gray-500 hover:text-white p-1"
+            >
+              <i className="fas fa-times text-sm"></i>
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <input 
+              type="text" 
+              placeholder="ws://127.0.0.1:39539" 
+              value={vmcUrl}
+              onChange={(e) => setVmcUrl(e.target.value)}
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50"
+            />
+            {vmcState === 'connected' ? (
+              <button 
+                onClick={disconnectVmc}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+              >
+                Cut
+              </button>
+            ) : (
+              <button 
+                onClick={connectVmc}
+                disabled={vmcState === 'connecting'}
+                className={`px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all hover:bg-blue-500 ${vmcState === 'connecting' ? 'opacity-50' : ''}`}
+              >
+                {vmcState === 'connecting' ? 'Linking' : 'Link'}
+              </button>
+            )}
+          </div>
+
+          {/* Connection Stats banner */}
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/3 border border-white/5 font-mono text-[10px]">
+            <span className="text-gray-500 font-bold">LINK STATUS:</span>
+            {vmcState === 'connected' ? (
+              <span className="text-emerald-400 font-bold animate-pulse flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> CONNECTED ({vmcHz} Hz)
+              </span>
+            ) : vmcState === 'connecting' ? (
+              <span className="text-amber-400 font-bold animate-pulse flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping"></span> ESTABLISHING...
+              </span>
+            ) : vmcState === 'error' ? (
+              <span className="text-red-500 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span> LINK FAILURE
+              </span>
+            ) : (
+              <span className="text-gray-400 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-gray-600 rounded-full"></span> OFFLINE
+              </span>
+            )}
+          </div>
+
+          {/* Controls Settings */}
+          <div className="space-y-2 pt-1 border-t border-white/5">
+            <p className="text-[8px] text-gray-500 font-black uppercase tracking-wider">Feed Stream Filters</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setApplyRotations(!applyRotations)}
+                className={`flex justify-between items-center px-3 py-2 rounded-xl border text-[9px] font-bold transition-all ${applyRotations ? 'border-blue-500 bg-blue-500/5 text-blue-400' : 'border-white/5 text-gray-400 hover:text-white'}`}
+              >
+                <span>BONE ROTATIONS</span>
+                <i className={`fas ${applyRotations ? 'fa-check text-blue-400' : 'fa-times text-gray-600'}`}></i>
+              </button>
+              <button
+                onClick={() => setApplyPositions(!applyPositions)}
+                className={`flex justify-between items-center px-3 py-2 rounded-xl border text-[9px] font-bold transition-all ${applyPositions ? 'border-blue-500 bg-blue-500/5 text-blue-400' : 'border-white/5 text-gray-400 hover:text-white'}`}
+              >
+                <span>ROOT POSITIONS</span>
+                <i className={`fas ${applyPositions ? 'fa-check text-blue-400' : 'fa-times text-gray-600'}`}></i>
+              </button>
+              <button
+                onClick={() => setApplyBlends(!applyBlends)}
+                className={`flex justify-between items-center px-3 py-2 rounded-xl border text-[9px] font-bold transition-all ${applyBlends ? 'border-blue-500 bg-blue-500/5 text-blue-400' : 'border-white/5 text-gray-400 hover:text-white'}`}
+              >
+                <span>BLEND SHAPES</span>
+                <i className={`fas ${applyBlends ? 'fa-check text-blue-400' : 'fa-times text-gray-600'}`}></i>
+              </button>
+              <button
+                onClick={() => setMirrorX(!mirrorX)}
+                className={`flex justify-between items-center px-3 py-2 rounded-xl border text-[9px] font-bold transition-all ${mirrorX ? 'border-blue-500 bg-blue-500/5 text-blue-400' : 'border-white/5 text-gray-400 hover:text-white'}`}
+              >
+                <span>MIRROR MOTION</span>
+                <i className={`fas ${mirrorX ? 'fa-check text-blue-400' : 'fa-times text-gray-600'}`}></i>
+              </button>
+            </div>
+          </div>
+
+          <p className="text-[8px] text-gray-500 leading-normal">
+            Stream raw motion capture vectors directly into this VRM rig from Virtual Motion Capture, VNyan, Warudo, or iFacialMocap over WebSocket protocol.
+          </p>
+        </div>
+      )}
+
       {/* Configuration Slider Menu */}
       {showConfig && (
-        <div className="absolute inset-x-4 bottom-16 bg-black/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 z-40 animate-slide-up-reveal flex flex-col gap-4">
+        <div className="absolute inset-x-4 bottom-16 bg-black/90 backdrop-blur-lg border border-white/10 rounded-2xl p-4 z-40 animate-slide-up-reveal flex flex-col gap-4 pointer-events-auto">
           <div className="flex justify-between items-center">
             <h5 className="font-black text-white uppercase tracking-wider text-xs">Vrm Asset Uplink</h5>
             <button 
