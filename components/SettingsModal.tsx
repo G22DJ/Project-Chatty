@@ -168,6 +168,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     ))}
                   </div>
                </div>
+
+               <div className="space-y-4 pt-6 border-t border-white/5">
+                 <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Avatar Projection Mode</label>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <button 
+                     onClick={() => setPrefs(p => ({ ...p, use3dAvatar: false }))} 
+                     className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${!prefs.use3dAvatar ? 'border-[var(--theme-primary)] bg-[var(--theme-primary)]/10 text-white' : 'border-white/5 bg-white/5 text-gray-400 hover:text-white'}`}
+                   >
+                     <i className="fas fa-image text-lg"></i>
+                     <span className="text-[8px] font-black uppercase tracking-widest">Standard 2D Generative Image</span>
+                   </button>
+                   <button 
+                     onClick={() => setPrefs(p => ({ ...p, use3dAvatar: true }))} 
+                     className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${prefs.use3dAvatar ? 'border-[var(--theme-primary)] bg-[var(--theme-primary)]/10 text-white' : 'border-white/5 bg-white/5 text-gray-400 hover:text-white'}`}
+                   >
+                     <i className="fas fa-cube text-lg"></i>
+                     <span className="text-[8px] font-black uppercase tracking-widest">Interactive 3D VRM Model</span>
+                   </button>
+                 </div>
+               </div>
             </div>
           )}
 
@@ -209,6 +229,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <h4 className="text-sm font-black uppercase tracking-widest">Identity Segment Privacy</h4>
                     <p className="text-xs text-gray-500 leading-relaxed">All chat records, memories, and files are keyed to your username. No other user on this system can access your segment data.</p>
                   </div>
+               </div>
+
+               <div className="p-8 bg-[#8b5cf6]/5 border border-[#8b5cf6]/10 rounded-[2.5rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 rounded-full bg-[#8b5cf6]/20 flex items-center justify-center flex-shrink-0 text-[#8b5cf6] text-2xl"><i className="fas fa-broom"></i></div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-black uppercase tracking-widest">Automatic Daily Chat Clear</h4>
+                      <p className="text-xs text-gray-500 leading-relaxed">Purge session chat history from previous days on startup to optimize performance and reduce memory storage overhead.</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setPrefs(p => ({ ...p, autoClearDaily: !p.autoClearDaily }))}
+                    className={`px-6 py-4 rounded-xl border-2 transition-all font-black text-[9px] uppercase tracking-widest flex-shrink-0 ${prefs.autoClearDaily ? 'bg-[var(--theme-primary)]/10 border-[var(--theme-primary)] text-[var(--theme-primary)]' : 'border-white/5 text-gray-400 hover:text-white hover:border-white/10'}`}
+                  >
+                    {prefs.autoClearDaily ? 'Enabled' : 'Disabled'}
+                  </button>
                </div>
                
                <div className="space-y-4">

@@ -14,6 +14,7 @@ import GroundingSources from './components/GroundingSources';
 import SettingsModal from './components/SettingsModal';
 import IntroSequence from './components/IntroSequence';
 import AvatarBuilder from './components/AvatarBuilder';
+import VrmAvatarViewer from './components/VrmAvatarViewer';
 
 const THEMES = {
   cosmic: { primary: '#3b82f6', secondary: '#8b5cf6', glow: 'rgba(59,130,246,0.5)', bg: '#02020a' },
@@ -48,7 +49,10 @@ const DEFAULT_PREFS: UserPreferences = {
   bgStyle: 'grid',
   speechSpeed: 1.0,
   speechPitch: 1.0,
-  greeting: 'Neural link established. How can I assist you today?'
+  greeting: 'Neural link established. How can I assist you today?',
+  use3dAvatar: false,
+  vrmModelUrl: 'https://pixiv.github.io/three-vrm/packages/three-vrm/examples/models/three-vrm-girl.vrm',
+  autoClearDaily: true
 };
 
 const saveKnowledgeTool = {
@@ -196,6 +200,8 @@ const App = () => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const saveTimeoutRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const streamingUserTextRef = useRef('');
+  const streamingAssistantTextRef = useRef('');
 
   const themeData = useMemo(() => {
     if (prefs.theme === 'custom') {
@@ -278,9 +284,22 @@ const App = () => {
 
   useEffect(() => {
     if (user) {
-      setPrefs({ ...DEFAULT_PREFS, ...user.preferences });
+      const mergedPrefs = { ...DEFAULT_PREFS, ...user.preferences };
+      setPrefs(mergedPrefs);
       setMemories(JSON.parse(localStorage.getItem(`nova_${user.username}_memories`) || '[]'));
-      setTranscriptions(JSON.parse(localStorage.getItem(`nova_${user.username}_logs`) || '[]'));
+      
+      const loadedLogs = JSON.parse(localStorage.getItem(`nova_${user.username}_logs`) || '[]') as TranscriptionEntry[];
+      if (mergedPrefs.autoClearDaily) {
+        const todayStr = new Date().toDateString();
+        const filteredLogs = loadedLogs.filter(entry => {
+          if (!entry.timestamp) return false;
+          return new Date(entry.timestamp).toDateString() === todayStr;
+        });
+        setTranscriptions(filteredLogs);
+      } else {
+        setTranscriptions(loadedLogs);
+      }
+      
       sessionStorage.setItem('nova_session_user', user.username);
     }
   }, [user]);
@@ -331,10 +350,14 @@ const App = () => {
     if (!keepScreen) setIsScreenSharing(false);
     setStreamingUserText('');
     setStreamingAssistantText('');
+    streamingUserTextRef.current = '';
+    streamingAssistantTextRef.current = '';
   }, [screenStream]);
 
   const startSession = async (initialText?: string) => {
     try {
+      streamingUserTextRef.current = '';
+      streamingAssistantTextRef.current = '';
       if (window.aistudio && !(await window.aistudio.hasSelectedApiKey())) {
         await window.aistudio.openSelectKey();
       }
@@ -426,13 +449,35 @@ const App = () => {
                 activeSourcesRef.current.add(s);
               }
             }
-            if (message.serverContent?.inputTranscription) setStreamingUserText(prev => prev + message.serverContent.inputTranscription.text);
-            if (message.serverContent?.outputTranscription) setStreamingAssistantText(prev => prev + message.serverContent.outputTranscription.text);
+            if (message.serverContent?.inputTranscription) {
+              const text = message.serverContent.inputTranscription.text;
+              streamingUserTextRef.current += text;
+              setStreamingUserText(streamingUserTextRef.current);
+            }
+            if (message.serverContent?.outputTranscription) {
+              const text = message.serverContent.outputTranscription.text;
+              streamingAssistantTextRef.current += text;
+              setStreamingAssistantText(streamingAssistantTextRef.current);
+            }
             if (message.serverContent?.turnComplete) {
               const chunks: any[] = message.serverContent?.groundingMetadata?.groundingChunks || [];
               const sources = chunks.map((c: any) => (c.web ? { title: c.web.title, uri: c.web.uri } : (c.maps ? { title: c.maps.title, uri: c.maps.uri } : null))).filter(Boolean);
-              setStreamingUserText(u => { if (u) addTranscription('user', u); return ''; });
-              setStreamingAssistantText(a => { if (a) { addTranscription('assistant', a, sources); audioUtils.playSuccessSound(outputCtx); } return ''; });
+              
+              const userText = streamingUserTextRef.current;
+              const assistantText = streamingAssistantTextRef.current;
+              
+              if (userText) {
+                addTranscription('user', userText);
+              }
+              if (assistantText) {
+                addTranscription('assistant', assistantText, sources);
+                audioUtils.playSuccessSound(outputCtx);
+              }
+              
+              streamingUserTextRef.current = '';
+              setStreamingUserText('');
+              streamingAssistantTextRef.current = '';
+              setStreamingAssistantText('');
             }
           },
           onerror: async (err: any) => {
@@ -627,6 +672,13 @@ const App = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-4">
+           <button 
+             onClick={() => setPrefs(prev => ({ ...prev, use3dAvatar: !prev.use3dAvatar }))} 
+             className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${prefs.use3dAvatar ? 'bg-blue-600 text-white shadow-[0_0_20px_var(--theme-glow)] border border-blue-400/20' : 'bg-white/5 text-gray-400 hover:text-white border border-transparent'}`}
+             title="Toggle 3D VRM Avatar"
+           >
+             <i className="fas fa-cube text-sm lg:text-lg"></i>
+           </button>
            <button onClick={() => setIsSettingsOpen(true)} className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all active:scale-90"><i className="fas fa-sliders-h text-sm lg:text-lg"></i></button>
            <button onClick={() => setIsMemoryOpen(!isMemoryOpen)} className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isMemoryOpen ? 'bg-[var(--theme-primary)] text-white shadow-[0_0_20px_var(--theme-glow)]' : 'bg-white/5 text-gray-400'}`}><i className="fas fa-brain text-sm lg:text-lg"></i></button>
            <button onClick={() => { stopSession(); setUser(null); }} className="w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors active:scale-90"><i className="fas fa-power-off text-sm lg:text-lg"></i></button>
@@ -641,50 +693,63 @@ const App = () => {
               {isScreenSharing && screenStream && <ScreenShareMode isActive={isScreenSharing} stream={screenStream} onFrame={handleIncomingFrame} onStop={() => setIsScreenSharing(false)} />}
             </div>
           )}
-          <div className="flex-1 flex flex-col glass rounded-[var(--ui-radius)] overflow-hidden relative shadow-2xl min-h-0">
-            <div className={`flex-1 p-4 lg:p-8 space-y-4 lg:space-y-8 overflow-y-auto scrollbar-thin transcription-list`} ref={scrollRef}>
-              <TranscriptionList transcriptions={transcriptions} deleteTranscription={deleteTranscription} themePrimary={themeData.primary} assistantProfilePic={prefs.assistantProfilePic} />
-              {(streamingAssistantText || streamingUserText || state === AssistantState.THINKING) && (
-                <div className="items-start flex flex-col animate-pop">
-                  <div className="flex items-end gap-2 max-w-[85%]">
-                    <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full overflow-hidden border border-white/10 flex-shrink-0 mb-1">
-                      {prefs.assistantProfilePic ? (
-                        <img src={prefs.assistantProfilePic} className="w-full h-full object-cover" alt="AI" />
-                      ) : (
-                        <div className="w-full h-full bg-blue-500/10 flex items-center justify-center">
-                          <i className="fas fa-user-astronaut text-white text-[8px] lg:text-[10px]"></i>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 px-5 py-3 rounded-[var(--bubble-radius)] bg-white/[0.03] text-white/60 border border-white/5">
-                      {streamingUserText && <p className="text-[10px] text-blue-400 font-black uppercase mb-1 opacity-50">Transcribing User...</p>}
-                      {streamingUserText && <p className="mb-3 text-sm italic">"{streamingUserText}"</p>}
-                      {streamingAssistantText ? <p className="font-mono text-xs lg:text-sm leading-relaxed">{streamingAssistantText}</p> : <div className="typing-indicator"><span></span><span></span><span></span></div>}
+          <div className="flex-1 flex flex-col lg:flex-row gap-[var(--ui-gap)] min-h-0">
+            <div className="flex-1 flex flex-col glass rounded-[var(--ui-radius)] overflow-hidden relative shadow-2xl min-h-0">
+              <div className={`flex-1 p-4 lg:p-8 space-y-4 lg:space-y-8 overflow-y-auto scrollbar-thin transcription-list`} ref={scrollRef}>
+                <TranscriptionList transcriptions={transcriptions} deleteTranscription={deleteTranscription} themePrimary={themeData.primary} assistantProfilePic={prefs.assistantProfilePic} />
+                {(streamingAssistantText || streamingUserText || state === AssistantState.THINKING) && (
+                  <div className="items-start flex flex-col animate-pop">
+                    <div className="flex items-end gap-2 max-w-[85%]">
+                      <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full overflow-hidden border border-white/10 flex-shrink-0 mb-1">
+                        {prefs.assistantProfilePic ? (
+                          <img src={prefs.assistantProfilePic} className="w-full h-full object-cover" alt="AI" />
+                        ) : (
+                          <div className="w-full h-full bg-blue-500/10 flex items-center justify-center">
+                            <i className="fas fa-user-astronaut text-white text-[8px] lg:text-[10px]"></i>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 px-5 py-3 rounded-[var(--bubble-radius)] bg-white/[0.03] text-white/60 border border-white/5">
+                        {streamingUserText && <p className="text-[10px] text-blue-400 font-black uppercase mb-1 opacity-50">Transcribing User...</p>}
+                        {streamingUserText && <p className="mb-3 text-sm italic">"{streamingUserText}"</p>}
+                        {streamingAssistantText ? <p className="font-mono text-xs lg:text-sm leading-relaxed">{streamingAssistantText}</p> : <div className="typing-indicator"><span></span><span></span><span></span></div>}
+                      </div>
                     </div>
                   </div>
+                )}
+              </div>
+              <div className="p-4 lg:p-8 border-t border-white/5 bg-black/50 backdrop-blur-2xl flex flex-col gap-3 lg:gap-6">
+                <VoiceVisualizer state={state} analyser={analyserRef.current || undefined} />
+                <div className="flex flex-wrap md:flex-nowrap gap-3 items-center">
+                    <div className="flex gap-2 w-full md:w-auto justify-center md:justify-start">
+                      <button onClick={handleToggleVision} className={`w-12 h-12 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isVisionActive ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Optic Link"><i className="fas fa-camera text-sm lg:text-lg"></i></button>
+                      <button onClick={handleToggleScreenShare} className={`w-12 h-12 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isScreenSharing ? 'bg-cyan-500 text-white animate-pulse shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Screen Uplink"><i className="fas fa-desktop text-sm lg:text-lg"></i></button>
+                      <button onClick={() => fileInputRef.current?.click()} className="w-12 h-12 lg:w-14 lg:h-14 rounded-xl bg-white/5 text-gray-400 hover:text-white flex items-center justify-center transition-all active:scale-90" title="Upload Image">
+                        <i className="fas fa-image text-sm lg:text-lg"></i>
+                      </button>
+                      <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+                    </div>
+                    <div className="flex-1 flex gap-2 w-full">
+                      <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendText()} placeholder="Directive..." className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 lg:px-6 py-3 lg:py-5 text-sm lg:text-lg focus:outline-none focus:border-blue-500/50 text-white font-bold min-w-0" />
+                      <button onClick={inputText.trim() ? handleSendText : (state === AssistantState.IDLE ? () => startSession() : stopSession)} className={`flex-shrink-0 w-14 h-14 md:w-48 lg:w-64 md:h-20 rounded-[var(--ui-radius)] flex items-center justify-center transition-all gap-2 lg:gap-4 neo-button shadow-2xl ${state === AssistantState.IDLE ? 'bg-white text-black' : 'bg-red-600 text-white animate-pulse'}`}>
+                        <i className={`fas ${inputText.trim() ? 'fa-paper-plane' : (state === AssistantState.IDLE ? 'fa-bolt' : 'fa-square')} text-sm lg:text-lg`}></i>
+                        <span className="hidden md:inline font-black uppercase tracking-widest text-[8px] lg:text-[11px]">{inputText.trim() ? 'SEND' : (state === AssistantState.IDLE ? 'IGNITE' : 'HALT')}</span>
+                      </button>
+                    </div>
                 </div>
-              )}
-            </div>
-            <div className="p-4 lg:p-8 border-t border-white/5 bg-black/50 backdrop-blur-2xl flex flex-col gap-3 lg:gap-6">
-              <VoiceVisualizer state={state} analyser={analyserRef.current || undefined} />
-              <div className="flex flex-wrap md:flex-nowrap gap-3 items-center">
-                  <div className="flex gap-2 w-full md:w-auto justify-center md:justify-start">
-                    <button onClick={handleToggleVision} className={`w-12 h-12 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isVisionActive ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Optic Link"><i className="fas fa-camera text-sm lg:text-lg"></i></button>
-                    <button onClick={handleToggleScreenShare} className={`w-12 h-12 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isScreenSharing ? 'bg-cyan-500 text-white animate-pulse shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-gray-400 hover:text-white'}`} title="Screen Uplink"><i className="fas fa-desktop text-sm lg:text-lg"></i></button>
-                    <button onClick={() => fileInputRef.current?.click()} className="w-12 h-12 lg:w-14 lg:h-14 rounded-xl bg-white/5 text-gray-400 hover:text-white flex items-center justify-center transition-all active:scale-90" title="Upload Image">
-                      <i className="fas fa-image text-sm lg:text-lg"></i>
-                    </button>
-                    <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                  </div>
-                  <div className="flex-1 flex gap-2 w-full">
-                    <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendText()} placeholder="Directive..." className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 lg:px-6 py-3 lg:py-5 text-sm lg:text-lg focus:outline-none focus:border-blue-500/50 text-white font-bold min-w-0" />
-                    <button onClick={inputText.trim() ? handleSendText : (state === AssistantState.IDLE ? () => startSession() : stopSession)} className={`flex-shrink-0 w-14 h-14 md:w-48 lg:w-64 md:h-20 rounded-[var(--ui-radius)] flex items-center justify-center transition-all gap-2 lg:gap-4 neo-button shadow-2xl ${state === AssistantState.IDLE ? 'bg-white text-black' : 'bg-red-600 text-white animate-pulse'}`}>
-                      <i className={`fas ${inputText.trim() ? 'fa-paper-plane' : (state === AssistantState.IDLE ? 'fa-bolt' : 'fa-square')} text-sm lg:text-lg`}></i>
-                      <span className="hidden md:inline font-black uppercase tracking-widest text-[8px] lg:text-[11px]">{inputText.trim() ? 'SEND' : (state === AssistantState.IDLE ? 'IGNITE' : 'HALT')}</span>
-                    </button>
-                  </div>
               </div>
             </div>
+
+            {prefs.use3dAvatar && (
+              <div className="w-full lg:w-[350px] xl:w-[400px] h-[350px] lg:h-auto glass rounded-[var(--ui-radius)] overflow-hidden relative shadow-2xl flex-shrink-0 flex flex-col">
+                <VrmAvatarViewer 
+                  modelUrl={prefs.vrmModelUrl} 
+                  isSpeaking={state === AssistantState.SPEAKING} 
+                  themeColor={themeData.primary}
+                  analyser={analyserRef.current || null}
+                />
+              </div>
+            )}
           </div>
         </div>
         {isMemoryOpen && (

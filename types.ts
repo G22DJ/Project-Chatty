@@ -85,6 +85,11 @@ export interface UserPreferences {
    * Optional configuration for the AI's generated avatar.
    */
   avatarConfig?: AvatarConfig;
+
+  // VRM Model Custom Integration
+  vrmModelUrl?: string;
+  use3dAvatar?: boolean;
+  autoClearDaily?: boolean;
 }
 
 export interface AuthUser {
