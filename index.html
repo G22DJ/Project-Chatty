@@ -30,13 +30,6 @@
             --bg-base: #02020a;
             --ui-font: 'Inter', sans-serif;
             --bubble-radius: 2.5rem;
-            --user-bubble-bg: var(--theme-primary);
-            --user-bubble-text: #ffffff;
-            --agent-bubble-bg: rgba(255, 255, 255, 0.04);
-            --agent-bubble-text: #e5e7eb;
-            --glass-opacity: 0.04;
-            --glass-blur: 32px;
-            --bg-image: none;
         }
         @supports (height: 100dvh) { :root { --dvh: 100dvh; } }
 
@@ -136,9 +129,9 @@
         }
 
         .glass {
-            background: rgba(255, 255, 255, var(--glass-opacity));
-            backdrop-filter: blur(var(--glass-blur));
-            -webkit-backdrop-filter: blur(var(--glass-blur));
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(32px);
+            -webkit-backdrop-filter: blur(32px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: var(--ui-radius);
             transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
@@ -169,7 +162,6 @@
 </head>
 <body>
     <div class="chatty-bg">
-        <div id="bg-image-container" style="position: absolute; inset: 0; background-image: var(--bg-image); background-size: cover; background-position: center; opacity: 0.3; pointer-events: none;"></div>
         <div class="chatty-bg-energy"></div>
         <div class="chatty-bg-grid" id="bg-grid"></div>
         <div class="chatty-bg-aurora" id="bg-aurora"></div>
